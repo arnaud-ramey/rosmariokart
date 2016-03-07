@@ -1,3 +1,6 @@
+# *rosmariokart*
+
+A "mariokart" clone, but made for real robots.
 
 Credits
 =======

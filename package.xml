@@ -4,7 +4,7 @@
   <name>rosmariokart</name>
   <version>0.0.0</version>
   <description>
-    "mariokart" clone for ROS.
+    A "mariokart" clone, but made for real robots.
   </description>
   <maintainer email="arnaud.a.ramey@gmail.com">Arnaud Ramey</maintainer>
   <license>LGPLv3</license>
