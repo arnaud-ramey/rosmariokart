@@ -13,12 +13,8 @@
   <param name="scale_linear" value="0.7"/>
   <param name="scale_angular" value="2.5"/>
   <param name="button_item" value="3"/>
-  <remap from="joy0" to="mip/joy"/>
-  <remap from="joy1" to="sumo/joy"/>
-  <remap from="sharp_turn0" to="mip/sharp_turn"/>
-  <remap from="sharp_turn1" to="sumo/sharp_turn"/>
-  <remap from="cmd_vel0" to="mip/cmd_vel"/>
-  <remap from="cmd_vel1" to="sumo/cmd_vel"/>
+  <remap from="player1_name" to="mip"/>
+  <remap from="player2_name" to="sumo"/>
 </node>
 
 <group ns="mip">
