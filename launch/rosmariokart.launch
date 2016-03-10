@@ -17,28 +17,6 @@
   <remap from="player2_name" to="sumo"/>
 </node>
 
-<group ns="mip">
-  <!-- Driver for first joystick. -->
-  <node pkg="joy" type="joy_node" name="joy1" output="screen" >
-    <param name="dev" value="/dev/input/js0" />
-    <param name="autorepeat_rate" value="25" />
-  </node>
-  <!-- MIP driver -->
-  <node pkg="rosmip" type="rosmip.exe" name="mip" respawn="false" output="screen"
-        args="_device_mac:=00:19:0E:16:AF:22  _mip_mac:=D0:39:72:B7:AF:66
-              _use_odometry_speed:=true" />
-</group>
-
-<group ns="sumo">
-  <!-- Driver for second joystick. -->
-  <node pkg="joy" type="joy_node" name="joy2" output="screen" >
-    <param name="dev" value="/dev/input/js2" />
-    <param name="autorepeat_rate" value="25" />
-  </node>
-  <!-- rossumo driver -->
-  <node pkg="rossumo" type="rossumo.exe" name="sumo" respawn="false" output="screen">
-    <param name="camera_calibration_filename" value="$(find rossumo)/data/sumo_camera_parameters.yaml"/>
-    <param name="camera_calibration_camname" value="head_camera"/>
-  </node>
-</group>
+<include file="$(find rosmariokart)/launch/rosmariokart_mip.launch"/>
+<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch"/>
 </launch>
