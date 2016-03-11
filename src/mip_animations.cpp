@@ -27,37 +27,100 @@ Useful for rosmariokart.
  */
 #include <std_msgs/String.h>
 #include <std_msgs/Int16.h>
-#include <std_msgs/Float32.h>
 #include <geometry_msgs/Twist.h>
 #include <std_msgs/Float32MultiArray.h>
-#include <std_msgs/Int8MultiArray.h>
+#include <std_msgs/UInt8MultiArray.h>
 #include <ros/ros.h>
 #include <boost/assign/std/vector.hpp>
 using namespace boost::assign; // https://stackoverflow.com/questions/2236197/what-is-the-easiest-way-to-initialize-a-stdvector-with-hardcoded-elements
 
 ros::Publisher sound_pub, sharp_turn_pub, cmd_vel_pub,
-chest_led_pub, chest_led_blink_pub;
+chest_led_pub, chest_led_blink_pub, head_led_pub;
+std_msgs::Int16 sound;
+std_msgs::Float32MultiArray sharp_turn;
+std_msgs::UInt8MultiArray chest_led, head_led;
+std_msgs::Float32MultiArray chest_led_blink;
+geometry_msgs::Twist cmd_vel;
+
+inline void set_chest_led(int r, int g, int b, double ton, double toff) {
+  chest_led_blink.data.clear();
+  chest_led_blink.data += r, g, b, ton, toff;
+  chest_led_blink_pub.publish(chest_led_blink);
+  ros::spinOnce();
+}
+inline void set_chest_led(int r, int g, int b) {
+  ROS_WARN("set_chest_led(%i, %i, %i)", r, g, b);
+  chest_led.data.clear();
+  chest_led.data += r, g, b;
+  chest_led_pub.publish(chest_led);
+  ros::spinOnce();
+}
+inline void set_default_chest_led() { set_chest_led(0, 255, 0); }
+
+inline void set_head_led(int l1, int l2, int l3, int l4) {
+  head_led.data.clear();
+  head_led.data += l1, l2, l3, l4;
+  head_led_pub.publish(head_led);
+  ros::spinOnce();
+}
+inline void set_default_head_led() { set_head_led(1, 1, 1, 1); }
+
+inline void play_sound(int idx) {
+  sound.data = idx;
+  sound_pub.publish(sound);
+  ros::spinOnce();
+}
+
+inline void spin(const double & angle, const int & speed) {
+  sharp_turn.data.clear();
+  sharp_turn.data += angle, speed;
+  sharp_turn_pub.publish(sharp_turn);
+  ros::spinOnce();
+}
+
+inline void minisleep() { ros::Duration(.1).sleep(); }
 
 void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
-  std_msgs::Int16 sound;
-  std_msgs::Float32 sharp_turn;
-  std_msgs::Int8MultiArray chest_led, default_chest_led;
-  default_chest_led.data += 0, 255, 0;
-  std_msgs::Float32MultiArray chest_led_blink;
-  geometry_msgs::Twist cmd_vel;
   if (anim == "win") {
-    chest_led_blink.data += 0, 255, 0, 0.2, 0.2;
-    chest_led_blink_pub.publish(chest_led_blink);
-    ros::spinOnce();
-    //usleep(50 * 1000);
-    sound.data = 16;
-    sound_pub.publish(sound);
-    ros::spinOnce();
-    //sleep(1000 * 1000);
-    chest_led_pub.publish(default_chest_led );
-  }
+    play_sound(16); // oh yeah
+    minisleep();
+    set_chest_led(0, 255, 0, 0.2, 0.2); // chest blink green
+    for (unsigned int i = 0; i < 7; ++i) {
+      set_head_led(i%2, (i+1)%2, i%2,(i+1)%2); // left -> right
+      usleep(300 * 1000);
+    }
+    set_default_chest_led();
+    minisleep();
+    set_default_head_led();
+  } // end "win"
+  else if (anim == "lose") {
+    play_sound(15); // ooooh!
+    minisleep();
+    set_chest_led(255, 0, 0, 0.2, 0.2); // chest blink red
+    for (unsigned int i = 0; i < 7; ++i) {
+      set_head_led((i+1)%2, i%2, i%2,(i+1)%2); // center -> outside
+      usleep(300 * 1000);
+    }
+    set_default_chest_led();
+    minisleep();
+    set_default_head_led();
+  } // end "lose"
+  else if (anim == "hit" || anim == "hit2") {
+    spin(2.7 * M_PI, 15);
+    minisleep();
+    play_sound(7 + rand() % 3); // punch 1 -> 3
+    minisleep();
+    set_chest_led(255, 0, 0, 0.2, 0.2); // chest blink red
+    for (unsigned int i = 0; i < 7; ++i) {
+      set_head_led((i+1)%2, i%2, i%2,(i+1)%2); // center -> outside
+      usleep(300 * 1000);
+    }
+    set_default_chest_led();
+    minisleep();
+    set_default_head_led();
+  } // end "hit"
 } // end anim_cb();
 
 int main(int argc, char** argv) {
@@ -65,10 +128,11 @@ int main(int argc, char** argv) {
   ros::NodeHandle nh_public;
   ros::Subscriber sub = nh_public.subscribe("animation", 1, anim_cb);
   sound_pub = nh_public.advertise<std_msgs::Int16>("sound", 1);
-  sharp_turn_pub = nh_public.advertise<std_msgs::Float32>("sharp_turn", 1);
+  sharp_turn_pub = nh_public.advertise<std_msgs::Float32MultiArray>("sharp_turn_speed", 1);
   cmd_vel_pub = nh_public.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-  chest_led_pub = nh_public.advertise<std_msgs::Int8MultiArray>("chest_led", 1);
+  chest_led_pub = nh_public.advertise<std_msgs::UInt8MultiArray>("chest_led", 1);
   chest_led_blink_pub = nh_public.advertise<std_msgs::Float32MultiArray>("chest_led_blink", 1);
+  head_led_pub = nh_public.advertise<std_msgs::UInt8MultiArray>("head_led", 1);
   ros::spin();
   return 0;
 }
