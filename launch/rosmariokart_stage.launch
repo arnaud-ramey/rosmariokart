@@ -1,0 +1,39 @@
+<launch>
+<!-- do not use Linux wall time but a simulated time -->
+<param name="/use_sim_time" value="true"/>
+<!-- rosmariokart -->
+<node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
+      output="screen" >
+  <param name="axis_linear" value="1"/>
+  <param name="axis_angular" value="0"/>
+  <param name="axis_90turn" value="4"/>
+  <param name="axis_180turn" value="5"/>
+  <param name="scale_linear" value="3"/>
+  <param name="scale_angular" value="5"/>
+  <param name="button_item" value="3"/>
+  <param name="gui_w" value="300"/>
+  <param name="gui_h" value="150"/>
+  <param name="player1_name" value="robot_0"/>
+  <param name="player2_name" value="robot_1"/>
+</node>
+
+<!-- stage -->
+<node pkg="stage_ros" type="stageros" name="stageros" required="true"
+      args="$(find rosmariokart)/config/race.world"/>
+
+<!-- first joystick -->
+<group ns="robot_0">
+  <node pkg="joy" type="joy_node" name="joy1" output="screen" >
+    <param name="dev" value="/dev/input/js0" />
+    <param name="autorepeat_rate" value="25" />
+  </node>
+</group>
+
+<!-- second joystick -->
+<group ns="robot_1">
+  <node pkg="joy" type="joy_node" name="joy2" output="screen" >
+    <param name="dev" value="/dev/input/js1" />
+    <param name="autorepeat_rate" value="25" />
+  </node>
+</group>
+</launch>

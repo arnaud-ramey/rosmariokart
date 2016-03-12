@@ -1,16 +1,20 @@
 <launch>
+<arg name="p1" value="mip"/>
+<arg name="p2" value="sumo"/>
 <!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
-      output="screen"
-      >
-<!--
-      launch-prefix="valgrind"
--->
-  <rosparam command="load" file="$(find rosmariokart)/config/mip_vs_sumo.yaml" />
+      output="screen" >
+  <param name="axis_linear" value="3"/>
+  <param name="axis_angular" value="0"/>
+  <param name="axis_90turn" value="4"/>
+  <param name="axis_180turn" value="5"/>
+  <param name="scale_linear" value="0.7"/>
+  <param name="scale_angular" value="2.5"/>
+  <param name="button_item" value="3"/>
+  <param name="player1_name" value="$(arg p1)"/>
+  <param name="player2_name" value="$(arg p2)"/>
 </node>
 
-<!--
-<include file="$(find rosmariokart)/launch/rosmariokart_mip.launch"/>
-<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch"/>
--->
+<include file="$(find rosmariokart)/launch/rosmariokart_$(arg p1).launch"/>
+<include file="$(find rosmariokart)/launch/rosmariokart_$(arg p2).launch"/>
 </launch>

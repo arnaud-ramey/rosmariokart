@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="225"
+   height="225"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="Mariocircuit1.svg"
+   inkscape:export-filename="Mariocircuit1.png"
+   inkscape:export-xdpi="300"
+   inkscape:export-ydpi="300">
+  <defs
+     id="defs4" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#000000"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="1"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.979899"
+     inkscape:cx="0.79108098"
+     inkscape:cy="87.464507"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="1366"
+     inkscape:window-height="768"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     borderlayer="true" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="bg"
+     style="display:none">
+    <image
+       transform="translate(-627.5,-651.29077)"
+       y="651.29077"
+       x="627.5"
+       id="image2993"
+       xlink:href="file:///home/arnaud/catkin_ws/src/rosmariokart/config/bitmaps/Mariocircuit1.jpg"
+       height="225"
+       width="225" />
+  </g>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-627.5,-651.29077)">
+    <path
+       style="color:#000000;fill:none;stroke:#ffffff;stroke-width:18;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate;stroke-miterlimit:4;stroke-dasharray:none"
+       d="M 59.346462,17.433957 186.84826,80.748059 c 13.51245,6.709932 18.7616,7.481495 18.47026,21.715711 -0.51544,25.18306 -0.17063,50.37638 -0.25595,75.56458 -0.0557,16.43822 -15.81088,22.7471 -25.76049,22.22291 -5.92237,-0.31202 -22.04132,-0.21677 -28.59318,-11.43824 -10.50363,-17.98971 -17.47173,-36.98957 -27.97536,-54.97929 -1.80459,-3.09073 -11.95973,-9.05793 -19.98217,-5.19217 L 43.093241,157.38892 C 21.883115,167.60941 16.858314,151.50721 16.920055,147.72333 L 18.687822,39.384469 C 18.926315,24.768284 41.459244,8.5516263 59.346462,17.433957 z"
+       id="path2996"
+       inkscape:connector-curvature="0"
+       transform="translate(627.5,651.29077)"
+       sodipodi:nodetypes="ssssssssssss" />
+  </g>
+</svg>

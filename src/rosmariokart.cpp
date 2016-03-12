@@ -28,6 +28,7 @@ ________________________________________________________________________________
 #include "rosmariokart/rosmariokart.h"
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/Joy.h>
 #include <ros/package.h>
@@ -62,21 +63,23 @@ public:
   };
   static const unsigned int NITEMS = 12; // = ITEM_ROULETTE
   static const unsigned int NCURSES = 9; // = CURSE_TIMEBOMB
-  static const unsigned int ITEM_W = 300; // px
 
   Rosmariokart() : _nh_private("~") {
+    // gui params
+    _nh_private.param("gui_w", _gui_w, 800);
+    _nh_private.param("gui_h", _gui_h, 600);
     // player params
-    Player pdefault;
-    _nh_private.param("player1_name", pdefault.name, std::string("player1"));
-    _players.push_back(pdefault);
-    _nh_private.param("player2_name", pdefault.name, std::string("player2"));
-    _players.push_back(pdefault);
-    _nh_private.param("player3_name", pdefault.name, std::string(""));
-    if (pdefault.name.length() > 0)
-      _players.push_back(pdefault);
-    _nh_private.param("player4_name", pdefault.name, std::string(""));
-    if (pdefault.name.length() > 0)
-      _players.push_back(pdefault);
+    Player p1, p2, p3, p4;
+    _nh_private.param("player1_name", p1.name, std::string("player1"));
+    _players.push_back(p1);
+    _nh_private.param("player2_name", p2.name, std::string("player2"));
+    _players.push_back(p2);
+    _nh_private.param("player3_name", p3.name, std::string(""));
+    if (p3.name.length() > 0)
+      _players.push_back(p3);
+    _nh_private.param("player4_name", p4.name, std::string(""));
+    if (p4.name.length() > 0)
+      _players.push_back(p4);
     _nplayers = _players.size();
     // item params
     _nh_private.param("axis_180turn", _axis_180turn, 4);
@@ -100,12 +103,15 @@ public:
     _nh_private.param("scale_linear", scale_linear, 1.0);
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
-      // create subscribers
+      // create subscribers - pass i
+      // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
       _players[i].joy_sub = _nh_public.subscribe<sensor_msgs::Joy>
-          (_players[i].name + "/joy", 1, &Rosmariokart::joy1_cb, this);
+          (_players[i].name + "/joy", 1, boost::bind(&Rosmariokart::joy_cb, this, _1, i));
       // create publishers
       _players[i].cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
           (_players[i].name + "/cmd_vel", 1);
+      _players[i].animation_pub  = _nh_public.advertise<std_msgs::String>
+          (_players[i].name + "/animation", 1);
       _players[i].sharp_turn_pub = _nh_public.advertise<std_msgs::Float32>
           (_players[i].name + "/sharp_turn", 1);
     }
@@ -113,13 +119,27 @@ public:
     // alloc data
     _data_path = ros::package::getPath("rosmariokart") + std::string("/data/");
     _sound_path =  _data_path + std::string("sounds/");
-    _players[0].item_roi  = cv::Point(48,150);
-    _players[1].item_roi  = cv::Point(452,150);
-    // load Items images
     std::string weappath =  _data_path + std::string("items/");
-    _bg = cv::imread(weappath + "screen.png", cv::IMREAD_COLOR);
+    //_bg = cv::imread(weappath + "screen.png", cv::IMREAD_COLOR);
+    // configure GUI
+    _gui_bg.create(_gui_h, _gui_w);
+    _gui_bg.setTo(cv::Vec3b(0,0,0));
+    if (_nplayers == 2) {
+      _item_w = std::min(_gui_w / 2, _gui_h);
+      int paddingh = (_gui_h - _item_w) / 2;
+      _players[0].item_roi  = cv::Point(0,paddingh);
+      _players[1].item_roi  = cv::Point(_gui_w/2, paddingh);
+    }
+    else if (_nplayers == 3) {
+      ROS_FATAL("Not implemented");
+      ros::shutdown();
+    }
+    else if (_nplayers == 4) {
+      ROS_FATAL("Not implemented");
+      ros::shutdown();
+    }
     // load Items
-    _item_imgs.resize(NITEMS, cv::Mat3b(ITEM_W,ITEM_W, cv::Vec3b(0, 0, 255)));
+    _item_imgs.resize(NITEMS, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
     imread_vector(_item_imgs, ITEM_BOO, "Boo.png");
     imread_vector(_item_imgs, ITEM_GOLDENMUSHROOM, "GoldenMushroom.png");
     imread_vector(_item_imgs, ITEM_LIGHTNING, "Lightning.png");
@@ -130,7 +150,7 @@ public:
     imread_vector(_item_imgs, ITEM_REDSHELL3, "RedShell3.png");
     imread_vector(_item_imgs, ITEM_STAR, "Star.png");
     imread_vector(_item_imgs, ITEM_TIMEBOMB, "TimeBomb.png");
-    _curse_imgs.resize(NCURSES, cv::Mat3b(ITEM_W, ITEM_W, cv::Vec3b(0, 0, 255)));
+    _curse_imgs.resize(NCURSES, cv::Mat3b(_item_w, _item_w, cv::Vec3b(0, 0, 255)));
     imread_vector(_curse_imgs, CURSE_BOO, "BooCurse.png");
     imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, "GoldenMushroomCurse.png");
     imread_vector(_curse_imgs, CURSE_LIGHTNING, "LightningCurse.png");
@@ -141,9 +161,9 @@ public:
     imread_vector(_curse_imgs, CURSE_TIMEBOMB, "TimeBombCurse.png");
     // resize items
     for (unsigned int i = 0; i < NITEMS; ++i)
-      cv::resize(_item_imgs[i], _item_imgs[i], cv::Size(ITEM_W, ITEM_W));
+      cv::resize(_item_imgs[i], _item_imgs[i], cv::Size(_item_w, _item_w));
     for (unsigned int i = 0; i < NCURSES; ++i)
-      cv::resize(_curse_imgs[i], _curse_imgs[i], cv::Size(ITEM_W, ITEM_W));
+      cv::resize(_curse_imgs[i], _curse_imgs[i], cv::Size(_item_w, _item_w));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -203,8 +223,8 @@ public:
     } // end for player_idx
 
     bool need_imshow = false;
-    if (_final_screen.empty()) { // first time display
-      _bg.copyTo(_final_screen);
+    if (_gui_final.empty()) { // first time display
+      _gui_bg.copyTo(_gui_final);
       need_imshow = true;
     }
 
@@ -222,15 +242,15 @@ public:
       if (need_redraw) {
         unsigned int tlx = p->item_roi.x, tly = p->item_roi.y;
         if (p->curse != CURSE_NONE)
-          paste_img(_curse_imgs[(int) p->curse], _final_screen, tlx, tly);
+          paste_img(_curse_imgs[(int) p->curse], _gui_final, tlx, tly);
         else if (p->item == ITEM_ROULETTE)
-          paste_img(_item_imgs[random_item()], _final_screen, tlx, tly);
+          paste_img(_item_imgs[random_item()], _gui_final, tlx, tly);
         else if (p->item != ITEM_NONE)
-          paste_img(_item_imgs[p->item], _final_screen, tlx, tly);
+          paste_img(_item_imgs[p->item], _gui_final, tlx, tly);
         else {// (CURSE_NONE && ITEM_NONE)
-          cv::Rect roi(tlx, tly, ITEM_W, ITEM_W);
-          cv::Mat3b item_roi(_final_screen(roi));
-          _bg(roi).copyTo(item_roi);
+          cv::Rect roi(tlx, tly, _item_w, _item_w);
+          cv::Mat3b item_roi(_gui_final(roi));
+          _gui_bg(roi).copyTo(item_roi);
         }
         p->last_drawn_item = p->item;
         p->last_drawn_curse = p->curse;
@@ -239,7 +259,7 @@ public:
 
     if (need_imshow) {
       //ROS_WARN("imshow()-%g s!", _last_roulette_play.getTimeSeconds());
-      cv::imshow("rosmariokart", _final_screen);
+      cv::imshow("rosmariokart", _gui_final);
     }
     char c = cv::waitKey(50);
     //ROS_WARN("c:%i", c);
@@ -419,6 +439,7 @@ protected:
   void set_speed(unsigned int player_idx,
                  double v,
                  double w) {
+    //ROS_WARN("set_speed(%i, %g, %g)", player_idx, v, w);
     Player* p = &(_players[player_idx]);
     geometry_msgs::Twist vel;
     vel.linear.x = v;
@@ -426,10 +447,12 @@ protected:
     // now check for curses
     Curse c = p->curse;
     if (c == CURSE_GOLDENMUSHROOM) {
-
+      vel.linear.x *= 5; // 500% faster
+      vel.angular.z *= 5; // 500% faster
     }
     else if (c == CURSE_LIGHTNING) {
       vel.linear.x *= .5; // half speed
+      vel.angular.z *= .5; // half speed
     }
     else if (c == CURSE_MIRROR) { // inverted commands
       vel.linear.x *= -1;
@@ -447,12 +470,10 @@ protected:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void joy0_cb(const sensor_msgs::Joy::ConstPtr& joy) { joy_cb(joy, 0); }
-  void joy1_cb(const sensor_msgs::Joy::ConstPtr& joy) { joy_cb(joy, 1); }
-
   //! \player_idx starts at 0
   void joy_cb(const sensor_msgs::Joy::ConstPtr& joy,
               unsigned int player_idx) {
+    //ROS_WARN("joy_cb(%i)", player_idx);
     int naxes = joy->axes.size(), nbuttons = joy->buttons.size();
     if (naxes < _axis_90turn
         || naxes < _axis_180turn
@@ -477,6 +498,10 @@ protected:
     // check item button
     if (joy->buttons[_button_item])
       item_button_cb(player_idx);
+    else {
+      Player* p = &(_players[player_idx]);
+      p->item_button_before = false;
+    }
 
     // cheat: trigger ROULETTE with button 0
     if (joy->buttons[0]) {
@@ -503,7 +528,7 @@ protected:
     std::string name;
     cv::Point item_roi;
     ros::Subscriber joy_sub;
-    ros::Publisher cmd_vel_pub, sharp_turn_pub;
+    ros::Publisher cmd_vel_pub, sharp_turn_pub, animation_pub;
     Item item, last_drawn_item;
     Curse curse, last_drawn_curse;
     bool sharp_turn_before, item_button_before;
@@ -516,13 +541,15 @@ protected:
   Timer _last_roulette_play, _timebomb;
 
   // opencv stuff
-  cv::Mat3b _bg, _final_screen;
+  int _gui_w, _gui_h;
+  cv::Mat3b _gui_bg, _gui_final;
   unsigned int _nplayers;
   std::vector<Player> _players;
 
   // items
   std::string _data_path, _sound_path;
   std::vector<cv::Mat3b> _item_imgs, _curse_imgs;
+  unsigned int _item_w; // pixels
   std::vector<double> _curse_timeout;
 }; // end class Rosmariokart
 
@@ -532,9 +559,13 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "rosmariokart");
   srand(time(NULL));
   Rosmariokart mariokart;
+  //ros::AsyncSpinner spinner(0);
+  //spinner.start();
+  ros::Rate rate(50);
   while (ros::ok()) {
-    ros::spinOnce();
     mariokart.refresh();
+    ros::spinOnce();
+    rate.sleep();
   } // end while (ros::ok())
   return 0;
 }
