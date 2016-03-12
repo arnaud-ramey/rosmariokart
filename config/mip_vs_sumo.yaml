@@ -1,0 +1,11 @@
+#~ https://github.com/ethz-asl/ros_best_practices/wiki
+#~ http://wiki.ros.org/rosparam
+axis_linear: 3
+axis_angular: 0
+axis_90turn: 4
+axis_180turn: 5
+scale_linear: 0.7
+scale_angular: 2.5
+button_item: 3
+player1_name: 'mip'
+player2_name: 'sumo'

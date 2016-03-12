@@ -6,17 +6,11 @@
 <!--
       launch-prefix="valgrind"
 -->
-  <param name="axis_linear" value="3"/>
-  <param name="axis_angular" value="0"/>
-  <param name="axis_90turn" value="4"/>
-  <param name="axis_180turn" value="5"/>
-  <param name="scale_linear" value="0.7"/>
-  <param name="scale_angular" value="2.5"/>
-  <param name="button_item" value="3"/>
-  <remap from="player1_name" to="mip"/>
-  <remap from="player2_name" to="sumo"/>
+  <rosparam command="load" file="$(find rosmariokart)/config/mip_vs_sumo.yaml" />
 </node>
 
+<!--
 <include file="$(find rosmariokart)/launch/rosmariokart_mip.launch"/>
 <include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch"/>
+-->
 </launch>

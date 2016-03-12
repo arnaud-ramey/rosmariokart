@@ -158,15 +158,15 @@ public:
     gettimeofday(&start, NULL);
   }
   //! get the time since ctor or last reset (milliseconds)
-  virtual inline Time getTimeMilliseconds() const {
+  virtual inline Time getTimeSeconds() const {
     struct timeval end;
     gettimeofday(&end, NULL);
     return (Time) (// seconds
                    (end.tv_sec - start.tv_sec)
-                   * 1000 +
+                   +
                    // useconds
                    (end.tv_usec - start.tv_usec)
-                   / 1000.f);
+                   / 1E6);
   }
 private:
   struct timeval start;
