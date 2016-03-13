@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="1544.0031"
+   height="1200.8577"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="logo.svg"
+   inkscape:export-filename="logo.png"
+   inkscape:export-xdpi="90"
+   inkscape:export-ydpi="90">
+  <defs
+     id="defs4">
+    <filter
+       inkscape:collect="always"
+       id="filter3826">
+      <feGaussianBlur
+         inkscape:collect="always"
+         stdDeviation="6.64"
+         id="feGaussianBlur3828" />
+    </filter>
+    <filter
+       inkscape:collect="always"
+       id="filter3838">
+      <feGaussianBlur
+         inkscape:collect="always"
+         stdDeviation="3.3684932"
+         id="feGaussianBlur3840" />
+    </filter>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.24748737"
+     inkscape:cx="475.21347"
+     inkscape:cy="744.89436"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1366"
+     inkscape:window-height="768"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="0"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(377.66064,-493.6037)">
+    <image
+       y="812.32458"
+       x="-3032.5837"
+       id="image3040"
+       xlink:href="file:///home/arnaud/catkin_ws/src/rosmariokart/doc/jumping_sumo_brown.jpg"
+       height="960"
+       width="1200"
+       transform="scale(-1,1)" />
+    <image
+       y="493.6037"
+       x="-377.66064"
+       id="image3014"
+       xlink:href="file:///home/arnaud/catkin_ws/src/rosmariokart/doc/jumping_sumo.jpg"
+       height="528"
+       width="800"
+       style="filter:url(#filter3826)" />
+    <image
+       y="944.36383"
+       x="39.613876"
+       id="image3027"
+       xlink:href="file:///home/arnaud/catkin_ws/src/rosmariokart/doc/RedShellTransparency.png"
+       height="306.83853"
+       width="366.86011"
+       style="filter:url(#filter3838)" />
+    <image
+       y="508.70505"
+       x="405.89035"
+       id="image3051"
+       xlink:href="file:///home/arnaud/catkin_ws/src/rosmariokart/doc/ori-robot-mip-noir-wowwee-1280.png"
+       height="1185.7563"
+       width="760.45203" />
+  </g>
+</svg>

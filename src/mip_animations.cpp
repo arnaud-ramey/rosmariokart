@@ -83,7 +83,8 @@ inline void minisleep() { ros::Duration(.1).sleep(); }
 void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
-  if (anim == "win") {
+  if (anim == "win"
+      || anim == "mock") {
     play_sound(16); // oh yeah
     minisleep();
     set_chest_led(0, 255, 0, 0.2, 0.2); // chest blink green
@@ -95,6 +96,7 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
     minisleep();
     set_default_head_led();
   } // end "win"
+
   else if (anim == "lose") {
     play_sound(15); // ooooh!
     minisleep();
@@ -107,7 +109,9 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
     minisleep();
     set_default_head_led();
   } // end "lose"
-  else if (anim == "hit" || anim == "hit2") {
+
+  else if (anim == "hit"
+           || anim == "hit2") {
     spin(2.7 * M_PI, 15);
     minisleep();
     play_sound(7 + rand() % 3); // punch 1 -> 3
