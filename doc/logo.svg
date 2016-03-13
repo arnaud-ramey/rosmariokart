@@ -43,19 +43,19 @@
      pagecolor="#ffffff"
      bordercolor="#666666"
      borderopacity="1.0"
-     inkscape:pageopacity="0.0"
+     inkscape:pageopacity="1"
      inkscape:pageshadow="2"
      inkscape:zoom="0.24748737"
-     inkscape:cx="475.21347"
+     inkscape:cx="1606.5843"
      inkscape:cy="744.89436"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
      inkscape:window-width="1366"
-     inkscape:window-height="768"
+     inkscape:window-height="743"
      inkscape:window-x="0"
      inkscape:window-y="0"
-     inkscape:window-maximized="0"
+     inkscape:window-maximized="1"
      fit-margin-top="0"
      fit-margin-left="0"
      fit-margin-right="0"
@@ -68,7 +68,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -77,14 +77,6 @@
      inkscape:groupmode="layer"
      id="layer1"
      transform="translate(377.66064,-493.6037)">
-    <image
-       y="812.32458"
-       x="-3032.5837"
-       id="image3040"
-       xlink:href="file:///home/arnaud/catkin_ws/src/rosmariokart/doc/jumping_sumo_brown.jpg"
-       height="960"
-       width="1200"
-       transform="scale(-1,1)" />
     <image
        y="493.6037"
        x="-377.66064"
