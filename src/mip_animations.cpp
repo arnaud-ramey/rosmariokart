@@ -83,19 +83,21 @@ inline void minisleep() { ros::Duration(.1).sleep(); }
 void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
-  if (anim == "win"
-      || anim == "mock") {
-    play_sound(16); // oh yeah
+  if (anim == "hit"
+      || anim == "hit2") {
+    spin(2.7 * M_PI, 15);
     minisleep();
-    set_chest_led(0, 255, 0, 0.2, 0.2); // chest blink green
+    play_sound(7 + rand() % 3); // punch 1 -> 3
+    minisleep();
+    set_chest_led(255, 0, 0, 0.2, 0.2); // chest blink red
     for (unsigned int i = 0; i < 7; ++i) {
-      set_head_led(i%2, (i+1)%2, i%2,(i+1)%2); // left -> right
+      set_head_led((i+1)%2, i%2, i%2,(i+1)%2); // center -> outside
       usleep(300 * 1000);
     }
     set_default_chest_led();
     minisleep();
     set_default_head_led();
-  } // end "win"
+  } // end "hit"
 
   else if (anim == "lose") {
     play_sound(15); // ooooh!
@@ -110,21 +112,19 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
     set_default_head_led();
   } // end "lose"
 
-  else if (anim == "hit"
-           || anim == "hit2") {
-    spin(2.7 * M_PI, 15);
+  else if (anim == "mock"
+           || anim == "win") {
+    play_sound(16); // oh yeah
     minisleep();
-    play_sound(7 + rand() % 3); // punch 1 -> 3
-    minisleep();
-    set_chest_led(255, 0, 0, 0.2, 0.2); // chest blink red
+    set_chest_led(0, 255, 0, 0.2, 0.2); // chest blink green
     for (unsigned int i = 0; i < 7; ++i) {
-      set_head_led((i+1)%2, i%2, i%2,(i+1)%2); // center -> outside
+      set_head_led(i%2, (i+1)%2, i%2,(i+1)%2); // left -> right
       usleep(300 * 1000);
     }
     set_default_chest_led();
     minisleep();
     set_default_head_led();
-  } // end "hit"
+  } // end "win"
 } // end anim_cb();
 
 int main(int argc, char** argv) {

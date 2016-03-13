@@ -11,7 +11,7 @@
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy1" output="screen" >
-    <param name="dev" value="/dev/input/js0" />
+    <param name="dev" value="/dev/input/js1" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -21,7 +21,7 @@
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy2" output="screen" >
-    <param name="dev" value="/dev/input/js1" />
+    <param name="dev" value="/dev/input/js2" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>

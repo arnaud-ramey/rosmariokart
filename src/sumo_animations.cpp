@@ -31,14 +31,14 @@ Useful for rosmariokart.
 #include <geometry_msgs/Twist.h>
 #include <ros/ros.h>
 
-ros::Publisher posture_pub, sharp_turn_pub, cmd_vel_pub;
-std_msgs::String posture;
+ros::Publisher posture_pub, sharp_turn_pub, cmd_vel_pub, anim_pub;
+std_msgs::String string_msg;
 std_msgs::Float32 sharp_turn;
 geometry_msgs::Twist cmd_vel;
 
 inline void set_posture(const std::string & s) {
-  posture.data = s;
-  posture_pub.publish(posture);
+  string_msg.data = s;
+  posture_pub.publish(string_msg);
   ros::spinOnce();
 }
 
@@ -62,9 +62,13 @@ inline void stop_robot() {
 void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
-  if (anim == "win") {
-    set_posture("standing");
-    spin(70, 2);
+  if (anim == "hit") {
+    spin(70, .7);
+    stop_robot();
+  }
+  else if (anim == "hit2") {
+    set_posture("kicker");
+    ros::Duration(2).sleep();
     stop_robot();
   }
   else if (anim == "lose") {
@@ -72,13 +76,17 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
     ros::Duration(5).sleep();
     stop_robot();
   }
-  else if (anim == "hit") {
-    spin(70, .7);
-    stop_robot();
+  else if (anim == "mock") {
+    string_msg.data = "tap";
+    for (unsigned int i = 0; i < 3; ++i) {
+      anim_pub.publish(string_msg);
+      ros::spinOnce();
+      usleep(200 * 1000);
+    }
   }
-  else if (anim == "hit2") {
-    set_posture("kicker");
-    ros::Duration(2).sleep();
+  else if (anim == "win") {
+    set_posture("standing");
+    spin(70, 2);
     stop_robot();
   }
 } // end anim_cb();
@@ -88,6 +96,7 @@ int main(int argc, char** argv) {
   ros::NodeHandle nh_public;
   ros::Subscriber sub = nh_public.subscribe("animation", 1, anim_cb);
   posture_pub = nh_public.advertise<std_msgs::String>("set_posture", 1);
+  anim_pub = nh_public.advertise<std_msgs::String>("anim", 1);
   sharp_turn_pub = nh_public.advertise<std_msgs::Float32>("sharp_turn", 1);
   cmd_vel_pub = nh_public.advertise<geometry_msgs::Twist>("cmd_vel", 1);
   ros::spin();

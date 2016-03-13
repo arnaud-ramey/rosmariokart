@@ -34,6 +34,10 @@ ________________________________________________________________________________
 #include <ros/package.h>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#define DEBUG_PRINT(...)   {}
+//#define DEBUG_PRINT(...)   ROS_INFO_THROTTLE(5, __VA_ARGS__)
+//#define DEBUG_PRINT(...)   ROS_WARN(__VA_ARGS__)
+
 class Rosmariokart {
 public:
   enum Item {
@@ -262,11 +266,11 @@ public:
     } // end for i
 
     if (need_imshow) {
-      //ROS_WARN("imshow()-%g s!", _last_roulette_play.getTimeSeconds());
+      DEBUG_PRINT("imshow()-%g s!", _last_roulette_play.getTimeSeconds());
       cv::imshow("rosmariokart", _gui_final);
     }
     char c = cv::waitKey(50);
-    //ROS_WARN("c:%i", c);
+    DEBUG_PRINT("c:%i", c);
     if (c == 27)
       ros::shutdown();
     else if (c == 'a')
@@ -296,9 +300,9 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   Item random_item() const {
+    return ITEM_LIGHTNING; // debug test
     Item i = (Item) (rand() % NITEMS);
     return (is_real_item(i) ? i : random_item());
-    //return ITEM_MUSHROOM;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -312,7 +316,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool set_player_roulette(unsigned int player_idx) {
-    //ROS_WARN("set_player_roulette(%i)", player_idx);
+    DEBUG_PRINT("set_player_roulette(%i)", player_idx);
     Player* p = &(_players[player_idx]);
     if (p->item != ITEM_NONE)
       return false;
@@ -336,7 +340,7 @@ protected:
       std_msgs::Float32 msg;
       msg.data = angle_rad;
       p->sharp_turn_pub.publish(msg);
-      //ROS_WARN("Player %i: sharp turn of angle %g rad!", player_idx, angle_rad);
+      DEBUG_PRINT("Player %i: sharp turn of angle %g rad!", player_idx, angle_rad);
       retval = true;
     }
     p->sharp_turn_before = angle_rad;
@@ -348,7 +352,7 @@ protected:
   //! \player_idx starts at 0
   bool item_button_cb(unsigned int player_idx,
                       bool skip_repetition_check = false) {
-    //ROS_WARN("item_button_cb(%i, %i)", player_idx, skip_repetition_check);
+    DEBUG_PRINT("item_button_cb(%i, %i)", player_idx, skip_repetition_check);
     unsigned target_player_idx = (player_idx == 0 ? 1 : 0);
     Player* p = &(_players[player_idx]), *target = &(_players[target_player_idx]);
     // check what to do if Item_button
@@ -359,6 +363,16 @@ protected:
     Item targeti = target->item;
     Curse targetc = target->curse;
 
+    // check curses
+    if (pc == CURSE_TIMEBOMB_COUNTDOWN) { // passing timebomb
+      if (targetc != CURSE_STAR) { // do nothing if target has star
+        play_sound("menumove.wav");
+        p->curse = CURSE_NONE;
+        target->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, player_idx);
+      }
+    } // end CURSE_TIMEBOMB_COUNTDOWN
+
+    // check items
     if (pi == ITEM_BOO) { // swap items
       //play_sound("boo.wav");
       play_sound("boosteal.wav");
@@ -383,7 +397,6 @@ protected:
       if (targetc != CURSE_STAR) { // do nothing if target has star
         target->receive_curse(CURSE_LIGHTNING, player_idx);
         p->play_animation("mock");
-        target->play_animation((rand()%2 ? "hit" : "hit2"));
       }
     }
     else if (pi == ITEM_MIRROR) {
@@ -417,7 +430,7 @@ protected:
       p->receive_curse(CURSE_STAR, player_idx);
     }
     else if (pi == ITEM_ROULETTE) { // got a new item
-      if (pc == CURSE_NONE && rand() % 20 >= 0) { // new TIMEBOMB!
+      if (pc == CURSE_NONE && rand() % 20 == 0) { // new TIMEBOMB!
         play_sound("timebomb.wav");
         p->item = ITEM_NONE;
         p->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, player_idx);
@@ -429,16 +442,6 @@ protected:
       }
     } // end if ROULETTE
 
-    // check items
-    if (pc == CURSE_TIMEBOMB_COUNTDOWN) { // passing timebomb
-      if (targetc != CURSE_STAR) { // do nothing if target has star
-        play_sound("menumove.wav");
-        p->curse = CURSE_NONE;
-        target->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, player_idx);
-      }
-    } // end CURSE_TIMEBOMB_COUNTDOWN
-
-
     p->item_button_before = true;
     return true;
   } // end item_button_cb()
@@ -449,7 +452,7 @@ protected:
   void set_speed(unsigned int player_idx,
                  double v,
                  double w) {
-    //ROS_WARN("set_speed(%i, %g, %g)", player_idx, v, w);
+    DEBUG_PRINT("set_speed(%i, %g, %g)", player_idx, v, w);
     Player* p = &(_players[player_idx]);
     geometry_msgs::Twist vel;
     vel.linear.x = v;
@@ -458,11 +461,11 @@ protected:
     Curse c = p->curse;
     if (c == CURSE_GOLDENMUSHROOM) {
       vel.linear.x *= 5; // 500% faster
-      vel.angular.z *= 5; // 500% faster
     }
     else if (c == CURSE_LIGHTNING) {
-      vel.linear.x *= .5; // half speed
-      vel.angular.z *= .5; // half speed
+      ROS_WARN("%i:CURSE_LIGHTNING!", player_idx);
+      vel.linear.x *= .3; // half speed
+      vel.angular.z *= .3; // half speed
     }
     else if (c == CURSE_MIRROR) { // inverted commands
       vel.linear.x *= -1;
@@ -470,7 +473,6 @@ protected:
     }
     if (c == CURSE_MUSHROOM) {
       vel.linear.x *= 5; // 500% faster
-      vel.angular.z *= 5; // 500% faster
     }
     else if (c == CURSE_REDSHELL_HIT || c == CURSE_TIMEBOMB_HIT) {
       vel = geometry_msgs::Twist(); // no move
@@ -487,7 +489,7 @@ protected:
   //! \player_idx starts at 0
   void joy_cb(const sensor_msgs::Joy::ConstPtr& joy,
               unsigned int player_idx) {
-    //ROS_WARN("joy_cb(%i)", player_idx);
+    DEBUG_PRINT("joy_cb(%i)", player_idx);
     int naxes = joy->axes.size(), nbuttons = joy->buttons.size();
     if (naxes < _axis_90turn
         || naxes < _axis_180turn

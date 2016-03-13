@@ -2,7 +2,7 @@
 
 A "mariokart" clone, but made for real robots.
 <p align="center">
-<img src="https://raw.githubusercontent.com/arnaud-ramey/rossumo/master/doc/jumping_sumo.jpg"
+<img src="https://raw.githubusercontent.com/arnaud-ramey/rosmariokart/master/doc/logo.png"
    alt="sumo" style="width: 300px"/>
 </p>
 
@@ -77,7 +77,7 @@ Publications
 - `/ROBOT/animation`, for ex: `/mip/animation`
   [std_msgs::String]
   Predefined animations that can be specific to each robot.
-  Among `win, lose, hit, hit2, mock`.
+  Among `hit, hit2, lose, mock, win`.
 
 - `/ROBOT/sharp_turn`, for ex: `/mip/sharp_turn`
   [std_msgs::Float32]

@@ -1,5 +1,7 @@
 <launch>
 <group ns="sumo">
+  <param name="scale_linear" value="40"/>
+  <param name="scale_angular" value="40"/>
   <!-- Driver for second joystick. -->
   <node pkg="joy" type="joy_node" name="joy2" output="screen" >
     <param name="dev" value="/dev/input/js2" />
