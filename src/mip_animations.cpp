@@ -83,8 +83,7 @@ inline void minisleep() { ros::Duration(.1).sleep(); }
 void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
-  if (anim == "hit"
-      || anim == "hit2") {
+  if (anim == "hit") {
     spin(2.7 * M_PI, 15);
     minisleep();
     play_sound(7 + rand() % 3); // punch 1 -> 3

@@ -52,6 +52,7 @@ public:
     ITEM_REDSHELL3       = 8,
     ITEM_STAR            = 9,
     ITEM_ROULETTE        = 10,
+    NITEMS               = 11,
   };
   enum Curse {
     CURSE_NONE               = 0,
@@ -65,9 +66,19 @@ public:
     CURSE_STAR               = 8,
     CURSE_TIMEBOMB_COUNTDOWN = 9,
     CURSE_TIMEBOMB_HIT       = 11,
+    NCURSES                  = 12
   };
-  static const unsigned int NITEMS = 11; // = ITEM_ROULETTE
-  static const unsigned int NCURSES = 12; // = CURSE_TIMEBOMB
+  enum joypadStatus {
+    JOYPAD_NEVER_RECEIVED = 0,
+    JOYPAD_OK             = 1,
+    JOYPAD_BAD_AXES_NB    = 2,
+    JOYPAD_BAD_BUTTONS_NB = 3,
+    JOYPAD_TIMEOUT        = 4,
+    NJOYPADS              = 5
+  };
+
+  //static const unsigned int NITEMS = 11; // = ITEM_ROULETTE
+  //static const unsigned int NCURSES = 12; // = CURSE_TIMEBOMB
 
   Rosmariokart() : _nh_private("~") {
     // gui params
@@ -87,7 +98,7 @@ public:
       _players.push_back(p4);
     _nplayers = _players.size();
     // item params
-    _curse_timeout.resize(NCURSES, 1);
+    _curse_timeout.resize(NCURSES, 10);
     _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 2.);
     _nh_private.param("curse_goldenmushroom_timeout", _curse_timeout[CURSE_GOLDENMUSHROOM], 2.);
     _nh_private.param("curse_lightning_timeout", _curse_timeout[CURSE_LIGHTNING], 2.);
@@ -106,28 +117,27 @@ public:
     _nh_private.param("button_item", _button_item, 3);
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
+      Player* p = &(_players[i]);
       // params
-      _nh_public.param(_players[i].name + "/scale_angular", _players[i].scale_angular, 1.0);
-      _nh_public.param(_players[i].name + "/scale_linear", _players[i].scale_linear, 1.0);
+      _nh_public.param(p->name + "/scale_angular", p->scale_angular, 1.0);
+      _nh_public.param(p->name + "/scale_linear", p->scale_linear, 1.0);
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
-      _players[i].joy_sub = _nh_public.subscribe<sensor_msgs::Joy>
-          (_players[i].name + "/joy", 1, boost::bind(&Rosmariokart::joy_cb, this, _1, i));
+      p->joy_sub = _nh_public.subscribe<sensor_msgs::Joy>
+          (p->name + "/joy", 1, boost::bind(&Rosmariokart::joy_cb, this, _1, i));
       // create publishers
-      _players[i].cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
-          (_players[i].name + "/cmd_vel", 1);
-      _players[i].animation_pub  = _nh_public.advertise<std_msgs::String>
-          (_players[i].name + "/animation", 1);
-      _players[i].sharp_turn_pub = _nh_public.advertise<std_msgs::Float32>
-          (_players[i].name + "/sharp_turn", 1);
+      p->cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
+          (p->name + "/cmd_vel", 1);
+      p->animation_pub  = _nh_public.advertise<std_msgs::String>
+          (p->name + "/animation", 1);
+      p->sharp_turn_pub = _nh_public.advertise<std_msgs::Float32>
+          (p->name + "/sharp_turn", 1);
     }
 
     // alloc data
     _data_path = ros::package::getPath("rosmariokart") + std::string("/data/");
     _sound_path =  _data_path + std::string("sounds/");
     // configure GUI
-    _gui_bg.create(_gui_h, _gui_w);
-    _gui_bg.setTo(cv::Vec3b(0,0,0));
     if (_nplayers == 2) {
       _item_w = std::min(_gui_w / 2, _gui_h);
       int paddingh = (_gui_h - _item_w) / 2;
@@ -142,50 +152,78 @@ public:
       ROS_FATAL("Not implemented");
       ros::shutdown();
     }
+    _gui_bg.create(_gui_h, _gui_w);
+    _gui_bg.setTo(cv::Vec3b(0,0,0));
+    // put robot background
+    for (unsigned int i = 0; i < _nplayers; ++i) {
+      Player* p = &(_players[i]);
+      std::string imgname = "random_robot.png";
+      if (p->name.find("mip") != std::string::npos)
+        imgname = "white_mip_black_bg.png";
+      else if (p->name.find("stage") != std::string::npos)
+        imgname = "stage_black_bg.png";
+      else if (p->name.find("sumo") != std::string::npos)
+        imgname = "white_sumo_black_bg.png";
+      std::string fullfilename = _data_path + std::string("robots/") + imgname;
+      cv:: Mat3b m = cv::imread(fullfilename , cv::IMREAD_COLOR);
+      if (!m.empty()) {
+        cv::resize(m, m, cv::Size(_item_w , _item_w));
+        m *= .5; // lower brightness
+        paste_img(m, _gui_bg, p->item_roi.x, p->item_roi.y);
+      }
+    } // end for i
+
     // load Items
     _item_imgs.resize(NITEMS, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_item_imgs, ITEM_BOO, "Boo.png");
-    imread_vector(_item_imgs, ITEM_GOLDENMUSHROOM, "GoldenMushroom.png");
-    imread_vector(_item_imgs, ITEM_LIGHTNING, "Lightning.png");
-    imread_vector(_item_imgs, ITEM_MIRROR, "Mirror.png");
-    imread_vector(_item_imgs, ITEM_MUSHROOM, "Mushroom.png");
-    imread_vector(_item_imgs, ITEM_REDSHELL, "RedShell.png");
-    imread_vector(_item_imgs, ITEM_REDSHELL2, "RedShell2.png");
-    imread_vector(_item_imgs, ITEM_REDSHELL3, "RedShell3.png");
-    imread_vector(_item_imgs, ITEM_STAR, "Star.png");
+    imread_vector(_item_imgs, ITEM_BOO, "items/Boo.png", _item_w);
+    imread_vector(_item_imgs, ITEM_GOLDENMUSHROOM, "items/GoldenMushroom.png", _item_w);
+    imread_vector(_item_imgs, ITEM_LIGHTNING, "items/Lightning.png", _item_w);
+    imread_vector(_item_imgs, ITEM_MIRROR, "items/Mirror.png", _item_w);
+    imread_vector(_item_imgs, ITEM_MUSHROOM, "items/Mushroom.png", _item_w);
+    imread_vector(_item_imgs, ITEM_REDSHELL, "items/RedShell.png", _item_w);
+    imread_vector(_item_imgs, ITEM_REDSHELL2, "items/RedShell2.png", _item_w);
+    imread_vector(_item_imgs, ITEM_REDSHELL3, "items/RedShell3.png", _item_w);
+    imread_vector(_item_imgs, ITEM_STAR, "items/Star.png", _item_w);
     // load curses
     _curse_imgs.resize(NCURSES, cv::Mat3b(_item_w, _item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_curse_imgs, CURSE_BOO, "BooCurse.png");
-    imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, "GoldenMushroomCurse.png");
-    imread_vector(_curse_imgs, CURSE_LIGHTNING, "LightningCurse.png");
-    imread_vector(_curse_imgs, CURSE_MIRROR, "MirrorCurse.png");
-    imread_vector(_curse_imgs, CURSE_MUSHROOM, "MushroomCurse.png");
-    imread_vector(_curse_imgs, CURSE_REDSHELL_HIT, "RedShellCurse.png");
-    imread_vector(_curse_imgs, CURSE_REDSHELL_COMING, "RedShellComing.png");
-    imread_vector(_curse_imgs, CURSE_STAR, "StarCurse.png");
-    imread_vector(_curse_imgs, CURSE_TIMEBOMB_COUNTDOWN, "TimeBombCountdown.png");
-    imread_vector(_curse_imgs, CURSE_TIMEBOMB_HIT, "TimeBombCurse.png");
-    // resize items
-    for (unsigned int i = 0; i < NITEMS; ++i)
-      cv::resize(_item_imgs[i], _item_imgs[i], cv::Size(_item_w, _item_w));
-    for (unsigned int i = 0; i < NCURSES; ++i)
-      cv::resize(_curse_imgs[i], _curse_imgs[i], cv::Size(_item_w, _item_w));
+    imread_vector(_curse_imgs, CURSE_BOO, "items/BooCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, "items/GoldenMushroomCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_LIGHTNING, "items/LightningCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_MIRROR, "items/MirrorCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_MUSHROOM, "items/MushroomCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_REDSHELL_HIT, "items/RedShellCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_REDSHELL_COMING, "items/RedShellComing.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_STAR, "items/StarCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_TIMEBOMB_COUNTDOWN, "items/TimeBombCountdown.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_TIMEBOMB_HIT, "items/TimeBombCurse.png", _item_w);
+    // load joypads
+    _joypad_imgs.resize(NJOYPADS, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
+    imread_vector(_joypad_imgs, JOYPAD_OK, "warnings/joypadOK.png", _item_w);
+    imread_vector(_joypad_imgs, JOYPAD_BAD_AXES_NB, "warnings/joypadError.png", _item_w);
+    imread_vector(_joypad_imgs, JOYPAD_BAD_BUTTONS_NB, "warnings/joypadError.png", _item_w);
+    imread_vector(_joypad_imgs, JOYPAD_NEVER_RECEIVED, "warnings/joypadWarning.png", _item_w);
+    imread_vector(_joypad_imgs, JOYPAD_TIMEOUT, "warnings/joypadWarning.png", _item_w);
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
   bool imread_vector(std::vector<cv::Mat3b> & v,
-                     unsigned int idx, const std::string & filename) {
+                     unsigned int idx,
+                     const std::string & filename,
+                     unsigned int width = -1) {
     if (idx >= v.size()) {
       ROS_WARN("Index '%i' out of range [0, %i]", idx, v.size());
       return false;
     }
-    std::string fullfilename = _data_path + std::string("items/") + filename;
-    cv::imread(fullfilename , cv::IMREAD_COLOR).copyTo(v[idx]);
-    if (v[idx].empty()) {
+    std::string fullfilename = _data_path + filename;
+    cv:: Mat m = cv::imread(fullfilename , cv::IMREAD_COLOR);
+    if (m.empty()) {
       ROS_WARN("Could not load image '%s'", fullfilename.c_str());
       return false;
     }
+    m.copyTo(v[idx]);
+    if (width > 0)
+      cv::resize(v[idx], v[idx], cv::Size(width , width ));
     return true;
   }
 
@@ -214,19 +252,19 @@ public:
           && (time_curse > _curse_timeout[CURSE_REDSHELL_COMING]
               || rand() % 50 == 0)) { // random end time
         play_sound("cpuspin.wav");
-        p->play_animation((rand()%2 ? "hit" : "hit2"));
+        p->play_animation("hit");
         p->play_animation_caster(player_idx, _players, "mock");
         p->receive_curse(CURSE_REDSHELL_HIT, p->curse_caster_idx);
       }
       else if (p->curse == CURSE_TIMEBOMB_COUNTDOWN
                && _timebomb.getTimeSeconds() > 4.935) { // 4.935 seconds
-        p->play_animation((rand()%2 ? "hit" : "hit2"));
+        p->play_animation("hit");
         p->play_animation_caster(player_idx, _players, "mock");
         p->receive_curse(CURSE_TIMEBOMB_HIT, p->curse_caster_idx);
       }
       else if ((p->curse != CURSE_NONE) // whatever curse
                && time_curse > _curse_timeout[p->curse]) {
-        p->curse = CURSE_NONE;
+        p->receive_curse(CURSE_NONE, player_idx);
       }
     } // end for player_idx
 
@@ -238,30 +276,39 @@ public:
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
-      // redraw only if needed
-      bool need_redraw = (p->item != p->last_drawn_item
-          || p->curse != p->last_drawn_curse);
-      // redraw if user has a roulette
-      if (p->item == ITEM_ROULETTE)
-        need_redraw = true;
-      if (need_redraw)
+      unsigned int tlx = p->item_roi.x, tly = p->item_roi.y;
+      // check joypad
+      if (p->joy_status == JOYPAD_OK && p->last_joy_updated.getTimeSeconds() > .5) {
+        p->joy_status = JOYPAD_TIMEOUT;
+      }
+      if (p->joy_status != JOYPAD_OK) {
         need_imshow = true;
+        paste_img(_joypad_imgs[(int) p->joy_status], _gui_final, tlx, tly);
+        continue;
+      }
 
-      if (need_redraw) {
-        unsigned int tlx = p->item_roi.x, tly = p->item_roi.y;
-        if (p->curse != CURSE_NONE)
+      // redraw only if needed
+      if (p->redraw_item_roi) {
+        //ROS_WARN("Redraw player %i!", i);
+        need_imshow = true;
+        if (p->curse != CURSE_NONE) {
           paste_img(_curse_imgs[(int) p->curse], _gui_final, tlx, tly);
-        else if (p->item == ITEM_ROULETTE)
+          p->redraw_item_roi = false;
+        }
+        else if (p->item == ITEM_ROULETTE) {
           paste_img(_item_imgs[random_item()], _gui_final, tlx, tly);
-        else if (p->item != ITEM_NONE)
+          p->redraw_item_roi = true;
+        }
+        else if (p->item != ITEM_NONE) {
           paste_img(_item_imgs[p->item], _gui_final, tlx, tly);
+          p->redraw_item_roi = false;
+        }
         else {// (CURSE_NONE && ITEM_NONE)
           cv::Rect roi(tlx, tly, _item_w, _item_w);
           cv::Mat3b item_roi(_gui_final(roi));
           _gui_bg(roi).copyTo(item_roi);
+          p->redraw_item_roi = false;
         }
-        p->last_drawn_item = p->item;
-        p->last_drawn_curse = p->curse;
       } // end if need_redraw
     } // end for i
 
@@ -300,7 +347,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   Item random_item() const {
-    return ITEM_LIGHTNING; // debug test
+    //return ITEM_LIGHTNING; // debug test
     Item i = (Item) (rand() % NITEMS);
     return (is_real_item(i) ? i : random_item());
   }
@@ -322,7 +369,7 @@ protected:
       return false;
     if (p->curse != CURSE_NONE)
       return false;
-    p->item = ITEM_ROULETTE;
+    p->receive_item(ITEM_ROULETTE);
     p->roulette_timer.reset();
     return true;
   }
@@ -367,7 +414,7 @@ protected:
     if (pc == CURSE_TIMEBOMB_COUNTDOWN) { // passing timebomb
       if (targetc != CURSE_STAR) { // do nothing if target has star
         play_sound("menumove.wav");
-        p->curse = CURSE_NONE;
+        p->receive_curse(CURSE_NONE, player_idx);
         target->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, player_idx);
       }
     } // end CURSE_TIMEBOMB_COUNTDOWN
@@ -376,10 +423,10 @@ protected:
     if (pi == ITEM_BOO) { // swap items
       //play_sound("boo.wav");
       play_sound("boosteal.wav");
-      p->item = ITEM_NONE;
+      p->receive_item(ITEM_NONE);
       if (is_real_item(targeti)) {
-        p->item = targeti;
-        target->item = ITEM_NONE;
+        p->receive_item(targeti);
+        target->receive_item(ITEM_NONE);
         target->receive_curse(CURSE_BOO, player_idx);
       }
       else { // nothing to steal -> punish player!
@@ -388,12 +435,12 @@ protected:
     }
     else if (pi == ITEM_GOLDENMUSHROOM) {
       play_sound("boost.wav");
-      p->item = ITEM_NONE;
+      p->receive_item(ITEM_NONE);
       p->receive_curse(CURSE_GOLDENMUSHROOM, player_idx);
     }
     else if (pi == ITEM_LIGHTNING) {
       play_sound("lightning.wav");
-      p->item = ITEM_NONE;
+      p->receive_item(ITEM_NONE);
       if (targetc != CURSE_STAR) { // do nothing if target has star
         target->receive_curse(CURSE_LIGHTNING, player_idx);
         p->play_animation("mock");
@@ -401,7 +448,7 @@ protected:
     }
     else if (pi == ITEM_MIRROR) {
       play_sound("quartz.wav");
-      p->item = ITEM_NONE;
+      p->receive_item(ITEM_NONE);
       if (targetc != CURSE_STAR) { // do nothing if target has star
         target->receive_curse(CURSE_MIRROR, player_idx);
         p->play_animation("mock");
@@ -409,35 +456,34 @@ protected:
     }
     else if (pi == ITEM_MUSHROOM) {
       play_sound("boost.wav");
-      p->item = ITEM_NONE;
-      p->curse = CURSE_MUSHROOM;
-      p->curse_timer.reset();
+      p->receive_item(ITEM_NONE);
+      p->receive_curse(CURSE_MUSHROOM, player_idx);
     }
     else if (pi == ITEM_REDSHELL || pi == ITEM_REDSHELL2 || pi == ITEM_REDSHELL3) {
       play_sound("cputhrow.wav");
       if (targetc != CURSE_STAR) // do nothing if target has star
         target->receive_curse(CURSE_REDSHELL_COMING, player_idx);
       if (pi == ITEM_REDSHELL) // decrease red shell counter
-        p->item = ITEM_NONE;
+        p->receive_item(ITEM_NONE);
       else if (pi == ITEM_REDSHELL2)
-        p->item = ITEM_REDSHELL;
+        p->receive_item(ITEM_REDSHELL);
       else if (pi == ITEM_REDSHELL3)
-        p->item = ITEM_REDSHELL2;
+        p->receive_item(ITEM_REDSHELL2);
     }
     else if (pi == ITEM_STAR) {
       play_sound("starman.wav");
-      p->item = ITEM_NONE;
+      p->receive_item(ITEM_NONE);
       p->receive_curse(CURSE_STAR, player_idx);
     }
     else if (pi == ITEM_ROULETTE) { // got a new item
-      if (pc == CURSE_NONE && rand() % 20 == 0) { // new TIMEBOMB!
+      if (pc == CURSE_NONE && rand() % 15 == 0) { // new TIMEBOMB!
         play_sound("timebomb.wav");
-        p->item = ITEM_NONE;
+        p->receive_item(ITEM_NONE);
         p->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, player_idx);
         _timebomb.reset();
       } else {
         Item neww = random_item();
-        p->item = neww;
+        p->receive_item(neww);
         play_sound("gotitem.wav");
       }
     } // end if ROULETTE
@@ -463,7 +509,7 @@ protected:
       vel.linear.x *= 5; // 500% faster
     }
     else if (c == CURSE_LIGHTNING) {
-      ROS_WARN("%i:CURSE_LIGHTNING!", player_idx);
+      //ROS_WARN("%i:CURSE_LIGHTNING!", player_idx);
       vel.linear.x *= .3; // half speed
       vel.angular.z *= .3; // half speed
     }
@@ -490,19 +536,26 @@ protected:
   void joy_cb(const sensor_msgs::Joy::ConstPtr& joy,
               unsigned int player_idx) {
     DEBUG_PRINT("joy_cb(%i)", player_idx);
+    Player* p = &(_players[player_idx]);
     int naxes = joy->axes.size(), nbuttons = joy->buttons.size();
     if (naxes < _axis_90turn
         || naxes < _axis_180turn
         || naxes < _axis_linear
         || naxes < _axis_angular) {
-      ROS_WARN_THROTTLE(1, "Only %i axes on joystick #%i!", naxes, player_idx);
+      ROS_WARN_THROTTLE(1, "Only %i axes on joypad #%i!", naxes, player_idx);
+      p->joy_status = JOYPAD_BAD_AXES_NB;
       return;
     }
     if (nbuttons < _button_item) {
-      ROS_WARN_THROTTLE(1, "Only %i buttons on joystick #%i!", nbuttons, player_idx);
+      ROS_WARN_THROTTLE(1, "Only %i buttons on joypad #%i!", nbuttons, player_idx);
+      p->joy_status = JOYPAD_BAD_BUTTONS_NB;
       return;
     }
 
+    if (p->joy_status != JOYPAD_OK) // redraw item on joystick reconnect
+      p->redraw_item_roi = true;
+    p->joy_status = JOYPAD_OK;
+    p->last_joy_updated.reset();
     // check sharp turns at 90° or 180°
     double angle = 0;
     if (fabs(joy->axes[_axis_90turn]) > 0.9)
@@ -512,7 +565,6 @@ protected:
     bool command_sent = sharp_turn_button_cb(angle, player_idx);
 
     // check item button
-    Player* p = &(_players[player_idx]);
     if (joy->buttons[_button_item])
       item_button_cb(player_idx);
     else {
@@ -537,15 +589,22 @@ protected:
 
   struct Player {
     Player() { // ctor
-      item = last_drawn_item = ITEM_NONE;
-      curse = last_drawn_curse = CURSE_NONE;
+      item = ITEM_NONE;
+      curse = CURSE_NONE;
+      joy_status = JOYPAD_NEVER_RECEIVED;
       scale_linear = scale_angular = 1;
       item_button_before = sharp_turn_before = false;
+      redraw_item_roi = true;
+    }
+    void receive_item(Item i) {
+      item = i;
+      redraw_item_roi = true;
     }
     void receive_curse(Curse c, unsigned int curse_caster_) {
       curse = c;
       curse_timer.reset();
       curse_caster_idx = curse_caster_;
+      redraw_item_roi = true;
     }
     void play_animation(const std::string & s) {
       std_msgs::String anim;
@@ -562,13 +621,15 @@ protected:
 
     std::string name;
     cv::Point item_roi;
+    bool redraw_item_roi;
     ros::Subscriber joy_sub;
     ros::Publisher cmd_vel_pub, sharp_turn_pub, animation_pub;
-    Item item, last_drawn_item;
-    Curse curse, last_drawn_curse;
+    Item item;
+    Curse curse;
+    joypadStatus joy_status;
     bool sharp_turn_before, item_button_before;
     double scale_angular, scale_linear;
-    Timer curse_timer, roulette_timer;
+    Timer curse_timer, roulette_timer, last_joy_updated;
     unsigned int curse_caster_idx;
   }; // end struct Player
 
@@ -584,7 +645,7 @@ protected:
 
   // items
   std::string _data_path, _sound_path;
-  std::vector<cv::Mat3b> _item_imgs, _curse_imgs;
+  std::vector<cv::Mat3b> _item_imgs, _curse_imgs, _joypad_imgs;
   unsigned int _item_w; // pixels
   std::vector<double> _curse_timeout;
 }; // end class Rosmariokart

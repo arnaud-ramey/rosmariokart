@@ -63,13 +63,18 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
   if (anim == "hit") {
-    spin(70, .7);
-    stop_robot();
-  }
-  else if (anim == "hit2") {
-    set_posture("kicker");
-    ros::Duration(2).sleep();
-    stop_robot();
+    switch (rand() % 2) {
+      case 0:
+        spin(70, .7);
+        stop_robot();
+        break;
+      case 1:
+      default:
+        set_posture("kicker");
+        ros::Duration(2).sleep();
+        stop_robot();
+        break;
+    }
   }
   else if (anim == "lose") {
     set_posture("kicker");
