@@ -34,12 +34,19 @@ ________________________________________________________________________________
 #include <ros/package.h>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define DEBUG_PRINT(...)   {}
+//#define DEBUG_PRINT(...)   {}
 //#define DEBUG_PRINT(...)   ROS_INFO_THROTTLE(5, __VA_ARGS__)
-//#define DEBUG_PRINT(...)   ROS_WARN(__VA_ARGS__)
+#define DEBUG_PRINT(...)   ROS_WARN(__VA_ARGS__)
 
 class Rosmariokart {
 public:
+  enum GameStatus {
+    GAME_STATUS_WAITING   = 0, // waiting for robots or joypads
+    GAME_STATUS_COUNTDOWN = 1, // countdown + lakitu
+    GAME_STATUS_RACE      = 2, // race time
+    GAME_STATUS_RACE_OVER = 3, // players cant move anymore
+    NGAME_STATUES         = 4
+  };
   enum Item {
     ITEM_NONE            = 0,
     ITEM_BOO             = 1,
@@ -57,33 +64,51 @@ public:
   enum Curse {
     CURSE_NONE               = 0,
     CURSE_BOO                = 1,
-    CURSE_GOLDENMUSHROOM     = 2,
-    CURSE_LIGHTNING          = 3,
-    CURSE_MIRROR             = 4,
-    CURSE_MUSHROOM           = 5,
-    CURSE_REDSHELL_COMING    = 6,
-    CURSE_REDSHELL_HIT       = 7,
-    CURSE_STAR               = 8,
-    CURSE_TIMEBOMB_COUNTDOWN = 9,
-    CURSE_TIMEBOMB_HIT       = 11,
-    NCURSES                  = 12
+    CURSE_DUD_START          = 2, // missed rocket start - http://www.mariowiki.com/Rocket_Start
+    CURSE_GOLDENMUSHROOM     = 3,
+    CURSE_LIGHTNING          = 4,
+    CURSE_MIRROR             = 5,
+    CURSE_MUSHROOM           = 6,
+    CURSE_REDSHELL_COMING    = 7,
+    CURSE_REDSHELL_HIT       = 8,
+    CURSE_ROCKET_START       = 9, // missed rocket start - http://www.mariowiki.com/Rocket_Start
+    CURSE_STAR               = 10,
+    CURSE_TIMEBOMB_COUNTDOWN = 11,
+    CURSE_TIMEBOMB_HIT       = 12,
+    NCURSES                  = 13
   };
-  enum joypadStatus {
+  enum JoypadStatus {
     JOYPAD_NEVER_RECEIVED = 0,
     JOYPAD_OK             = 1,
     JOYPAD_BAD_AXES_NB    = 2,
     JOYPAD_BAD_BUTTONS_NB = 3,
     JOYPAD_TIMEOUT        = 4,
-    NJOYPADS              = 5
+    NJOYPAD_STATUSES      = 5
+  };
+  enum RobotStatus {
+    ROBOT_NEVER_RECEIVED = 0,
+    ROBOT_OK             = 1,
+    ROBOT_TIMEOUT        = 2,
+    NROBOT_STATUSES      = 3
+  };
+  enum LakituStatus {
+    LAKITU_INVISIBLE      = 0,
+    LAKITU_LIGHT0         = 1,
+    LAKITU_LIGHT1         = 2,
+    LAKITU_LIGHT2         = 3,
+    LAKITU_LIGHT3         = 4,
+    LAKITU_RACE_OVER      = 5,
+    NLAKITU_STATUSES      = 6
   };
 
-  //static const unsigned int NITEMS = 11; // = ITEM_ROULETTE
-  //static const unsigned int NCURSES = 12; // = CURSE_TIMEBOMB
+  //////////////////////////////////////////////////////////////////////////////
 
   Rosmariokart() : _nh_private("~") {
     // gui params
     _nh_private.param("gui_w", _gui_w, 800);
     _nh_private.param("gui_h", _gui_h, 600);
+    _nh_private.param("min_time_roulette", _min_time_roulette, 10.);
+    _nh_private.param("timebomb_likelihood", _timebomb_likelihood, .05); // 5%
     // player params
     Player p1, p2, p3, p4;
     _nh_private.param("player1_name", p1.name, std::string("player1"));
@@ -99,15 +124,17 @@ public:
     _nplayers = _players.size();
     // item params
     _curse_timeout.resize(NCURSES, 10);
-    _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 2.);
-    _nh_private.param("curse_goldenmushroom_timeout", _curse_timeout[CURSE_GOLDENMUSHROOM], 2.);
-    _nh_private.param("curse_lightning_timeout", _curse_timeout[CURSE_LIGHTNING], 2.);
-    _nh_private.param("curse_mirror_timeout", _curse_timeout[CURSE_MIRROR], 2.);
-    _nh_private.param("curse_mushroom_timeout", _curse_timeout[CURSE_MUSHROOM], 2.);
-    _nh_private.param("curse_redshell_coming_timeout", _curse_timeout[CURSE_REDSHELL_COMING], 2.);
-    _nh_private.param("curse_redshell_hit_timeout", _curse_timeout[CURSE_REDSHELL_HIT], 2.);
+    _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 3.);
+    _nh_private.param("curse_dud_start_timeout", _curse_timeout[CURSE_DUD_START], 5.);
+    _nh_private.param("curse_goldenmushroom_timeout", _curse_timeout[CURSE_GOLDENMUSHROOM], 3.);
+    _nh_private.param("curse_lightning_timeout", _curse_timeout[CURSE_LIGHTNING], 5.);
+    _nh_private.param("curse_mirror_timeout", _curse_timeout[CURSE_MIRROR], 5.);
+    _nh_private.param("curse_mushroom_timeout", _curse_timeout[CURSE_MUSHROOM], 3.);
+    _nh_private.param("curse_redshell_coming_timeout", _curse_timeout[CURSE_REDSHELL_COMING], 3.);
+    _nh_private.param("curse_redshell_hit_timeout", _curse_timeout[CURSE_REDSHELL_HIT], 3.);
+    _nh_private.param("curse_rocket_start_timeout", _curse_timeout[CURSE_ROCKET_START], 5.);
     _nh_private.param("curse_star_timeout", _curse_timeout[CURSE_STAR], 3.130);
-    _nh_private.param("curse_timebomb_hit_timeout", _curse_timeout[CURSE_TIMEBOMB_HIT], 2.);
+    _nh_private.param("curse_timebomb_hit_timeout", _curse_timeout[CURSE_TIMEBOMB_HIT], 3.);
 
     // joy params
     _nh_private.param("axis_180turn", _axis_180turn, 4);
@@ -160,18 +187,19 @@ public:
       std::string imgname = "random_robot.png";
       if (p->name.find("mip") != std::string::npos)
         imgname = "white_mip_black_bg.png";
-      else if (p->name.find("stage") != std::string::npos)
+      else if (p->name.find("robot_") != std::string::npos)
         imgname = "stage_black_bg.png";
       else if (p->name.find("sumo") != std::string::npos)
         imgname = "white_sumo_black_bg.png";
       std::string fullfilename = _data_path + std::string("robots/") + imgname;
       cv:: Mat3b m = cv::imread(fullfilename , cv::IMREAD_COLOR);
-      if (!m.empty()) {
-        cv::resize(m, m, cv::Size(_item_w , _item_w));
-        m *= .5; // lower brightness
-        paste_img(m, _gui_bg, p->item_roi.x, p->item_roi.y);
-      }
+      if (m.empty())
+        continue;
+      cv::resize(m, m, cv::Size(_item_w , _item_w));
+      m *= .5; // lower brightness
+      paste_img(m, _gui_bg, p->item_roi.x, p->item_roi.y);
     } // end for i
+    _gui_bg.copyTo(_gui_final);
 
     // load Items
     _item_imgs.resize(NITEMS, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
@@ -187,61 +215,202 @@ public:
     // load curses
     _curse_imgs.resize(NCURSES, cv::Mat3b(_item_w, _item_w, cv::Vec3b(0, 0, 255)));
     imread_vector(_curse_imgs, CURSE_BOO, "items/BooCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_DUD_START, "items/DudStartCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, "items/GoldenMushroomCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_LIGHTNING, "items/LightningCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_MIRROR, "items/MirrorCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_MUSHROOM, "items/MushroomCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_REDSHELL_HIT, "items/RedShellCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_REDSHELL_COMING, "items/RedShellComing.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_ROCKET_START, "items/RocketStartCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_STAR, "items/StarCurse.png", _item_w);
     imread_vector(_curse_imgs, CURSE_TIMEBOMB_COUNTDOWN, "items/TimeBombCountdown.png", _item_w);
     imread_vector(_curse_imgs, CURSE_TIMEBOMB_HIT, "items/TimeBombCurse.png", _item_w);
-    // load joypads
-    _joypad_imgs.resize(NJOYPADS, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_joypad_imgs, JOYPAD_OK, "warnings/joypadOK.png", _item_w);
-    imread_vector(_joypad_imgs, JOYPAD_BAD_AXES_NB, "warnings/joypadError.png", _item_w);
-    imread_vector(_joypad_imgs, JOYPAD_BAD_BUTTONS_NB, "warnings/joypadError.png", _item_w);
-    imread_vector(_joypad_imgs, JOYPAD_NEVER_RECEIVED, "warnings/joypadWarning.png", _item_w);
-    imread_vector(_joypad_imgs, JOYPAD_TIMEOUT, "warnings/joypadWarning.png", _item_w);
+    // load joypad statues
+    _joypad_status_imgs.resize(NJOYPAD_STATUSES, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
+    imread_vector(_joypad_status_imgs, JOYPAD_OK, "warnings/joypadOK.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_BAD_AXES_NB, "warnings/joypadError.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_BAD_BUTTONS_NB, "warnings/joypadError.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_NEVER_RECEIVED, "warnings/joypadWarning.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_TIMEOUT, "warnings/joypadWarning.png", _item_w);
+    // load robot statuses
+    _robot_status_imgs.resize(NROBOT_STATUSES, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
+    imread_vector(_robot_status_imgs, ROBOT_OK, "warnings/robotOK.png", _item_w);
+    imread_vector(_robot_status_imgs, ROBOT_NEVER_RECEIVED, "warnings/robotWarning.png", _item_w);
+    imread_vector(_robot_status_imgs, ROBOT_TIMEOUT, "warnings/robotWarning.png", _item_w);
+    // load lakitu statuses
+    int lw = std::min(_gui_w, _gui_h);
+    _lakitu_roi.width = _lakitu_roi.height = lw;
+    _lakitu_roi.x = (_gui_w - lw) / 2;
+    _lakitu_roi.y = (_gui_h - lw) / 2;
+    _lakitu_status_imgs.resize(NLAKITU_STATUSES, cv::Mat3b(lw,lw, cv::Vec3b(0, 0, 255)));
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT0, "lakitu/0.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT1, "lakitu/1.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT2, "lakitu/2.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT3, "lakitu/3.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_RACE_OVER, "lakitu/finish.png", lw);
+
+    restart_race();
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  bool imread_vector(std::vector<cv::Mat3b> & v,
-                     unsigned int idx,
-                     const std::string & filename,
-                     unsigned int width = -1) {
-    if (idx >= v.size()) {
-      ROS_WARN("Index '%i' out of range [0, %i]", idx, v.size());
-      return false;
-    }
-    std::string fullfilename = _data_path + filename;
-    cv:: Mat m = cv::imread(fullfilename , cv::IMREAD_COLOR);
-    if (m.empty()) {
-      ROS_WARN("Could not load image '%s'", fullfilename.c_str());
-      return false;
-    }
-    m.copyTo(v[idx]);
-    if (width > 0)
-      cv::resize(v[idx], v[idx], cv::Size(width , width ));
+  bool restart_race() {
+    _game_status = GAME_STATUS_WAITING;
+    _lakitu_status = LAKITU_INVISIBLE;
     return true;
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
   bool refresh() {
-    // check items
+    switch (_game_status) {
+      case GAME_STATUS_WAITING:
+        return refresh_waiting();
+      case GAME_STATUS_COUNTDOWN:
+        return refresh_countdown();
+      case GAME_STATUS_RACE:
+        return refresh_race();
+      case GAME_STATUS_RACE_OVER:
+      default:
+        return refresh_race();
+    }
+  } // end refresh()
+
+protected:
+  //////////////////////////////////////////////////////////////////////////////
+
+  //! check if each player has a publisher for joypad and a subscrier for cmd_vel
+  //! \return true if everything OK, false otherwise.
+  //! If false, the image needs to be displayed
+  bool check_draw_joypads_robots() {
+    bool checkok = true;
     for (unsigned int player_idx = 0; player_idx < _nplayers; ++player_idx) {
       Player* p = &(_players[player_idx]);
+      // sanity checks: check joypad status
+      if (p->joypad_status != JOYPAD_OK)
+        checkok = false;
+      else if (p->last_joy_updated.getTimeSeconds() > .5) {
+        p->joypad_status = JOYPAD_TIMEOUT;
+        checkok = false;
+      }
+      // sanity checks: check robot status
+      if (p->cmd_vel_pub.getNumSubscribers())
+        p->robot_status = ROBOT_OK;
+      else {
+        p->robot_status = ROBOT_TIMEOUT;
+        checkok = false;
+      }
+      // now draw stuff
+      unsigned int tlx = p->item_roi.x, tly = p->item_roi.y;
+      // draw joypad status
+      if (p->joypad_status != JOYPAD_OK)
+        paste_img(_joypad_status_imgs[(int) p->joypad_status], _gui_final, tlx, tly);
+      // draw robot status
+      if (p->robot_status != ROBOT_OK)
+        paste_img(_robot_status_imgs[p->robot_status ], _gui_final, tlx, tly);
+    } // end for player_idx
+    return checkok;
+  } // end check_draw_joypads_robots()
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  void imshow() {
+    DEBUG_PRINT("imshow()-%g s!", _race_timer.getTimeSeconds());
+    cv::imshow("rosmariokart", _gui_final);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool refresh_waiting() {
+    bool checkok = check_draw_joypads_robots();
+    // check state changes
+    if (checkok) { // start countdown
+      DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN");
+      _game_status = GAME_STATUS_COUNTDOWN;
+      _lakitu_status = LAKITU_LIGHT0;
+      _gui_bg.copyTo(_gui_final);
+      _countdown.reset();
+    }
+    imshow();
+    char c = cv::waitKey(50);
+    if (c == 27)
+      ros::shutdown();
+    return checkok;
+  } // end refresh_waiting()
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool refresh_countdown() {
+    bool checkok = check_draw_joypads_robots(), need_imshow = false;
+    double time = _countdown.getTimeSeconds();
+    int y = _lakitu_roi.y;
+    // check state changes
+    if (time >= 3 + 2.40 && _lakitu_status == LAKITU_LIGHT2) { // start race
+      _race_timer.reset();
+      _lakitu_status = LAKITU_LIGHT3;
+      _game_status = GAME_STATUS_RACE;
+      // play a mushroom sound if needed
+      bool play_dud = false, play_rocket = false;
+      for (unsigned int i = 0; i < _nplayers; ++i) {
+        play_dud = play_dud || (_players[i].curse == CURSE_DUD_START);
+        play_rocket = play_rocket || (_players[i].curse == CURSE_ROCKET_START);
+      }
+      if (play_rocket) play_sound("boost.wav");
+      if (play_dud) play_sound("spinout.wav");
+      DEBUG_PRINT("Status: GAME_STATUS_RACE");
+    }
+    else if (time >= 3 + 1.20 && _lakitu_status == LAKITU_LIGHT1) {
+      _lakitu_status = LAKITU_LIGHT2;
+      need_imshow = true;
+    }
+    else if (time >= 3 && _lakitu_status == LAKITU_LIGHT0) {
+      _lakitu_status = LAKITU_LIGHT1;
+      play_sound("racestart.wav");
+      need_imshow = true;
+    }
+    else if (_lakitu_status == LAKITU_LIGHT0) { // time in [0, 3 [
+      double alpha = time / 3;
+      y = (1 - alpha) * _gui_h + alpha * _lakitu_roi.y;
+      need_imshow = true;
+    }
+
+    if (need_imshow) {
+      paste_img(_lakitu_status_imgs[(int) _lakitu_status], _gui_final, _lakitu_roi.x, y);
+      imshow();
+    }
+    char c = cv::waitKey(50);
+    if (c == 27)
+      ros::shutdown();
+    return checkok;
+  } // end refresh_countdown()
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool refresh_race() {
+    if (!check_draw_joypads_robots()) {
+      imshow();
+      char c = cv::waitKey(50);
+      if (c == 27)
+        ros::shutdown();
+      return false;
+    }
+
+    // check items
+    if (_last_roulette.getTimeSeconds() > _min_time_roulette && rand() % 100 >= 90)
+      set_players_roulette();
+
+    // check if each player item or curse is over
+    for (unsigned int player_idx = 0; player_idx < _nplayers; ++player_idx) {
+      Player* p = &(_players[player_idx]);
       // check items
       if (p->item == ITEM_ROULETTE) {
         if (p->roulette_timer.getTimeSeconds() > 3) // roulette timeout
           item_button_cb(player_idx, true);
         // rewind sound
-        else if (_last_roulette_play.getTimeSeconds() > .782) { // 0.782 seconds
+        else if (_last_roulette_sound_play.getTimeSeconds() > .782) { // 0.782 seconds
           play_sound("itemreel.wav");
-          _last_roulette_play.reset();
+          _last_roulette_sound_play.reset();
         }
       } // end ITEM_ROULETTE
 
@@ -264,70 +433,67 @@ public:
       }
       else if ((p->curse != CURSE_NONE) // whatever curse
                && time_curse > _curse_timeout[p->curse]) {
+        DEBUG_PRINT("Player %i: timeout on curse %i", player_idx, p->curse);
         p->receive_curse(CURSE_NONE, player_idx);
       }
     } // end for player_idx
 
+    // draw what needs to be drawn
     bool need_imshow = false;
-    if (_gui_final.empty()) { // first time display
+    if (_lakitu_status == LAKITU_LIGHT3) // will show lakitu going upwards -> need bg
       _gui_bg.copyTo(_gui_final);
-      need_imshow = true;
-    }
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
       unsigned int tlx = p->item_roi.x, tly = p->item_roi.y;
-      // check joypad
-      if (p->joy_status == JOYPAD_OK && p->last_joy_updated.getTimeSeconds() > .5) {
-        p->joy_status = JOYPAD_TIMEOUT;
-      }
-      if (p->joy_status != JOYPAD_OK) {
-        need_imshow = true;
-        paste_img(_joypad_imgs[(int) p->joy_status], _gui_final, tlx, tly);
-        continue;
-      }
-
       // redraw only if needed
       if (p->redraw_item_roi) {
         //ROS_WARN("Redraw player %i!", i);
+        p->redraw_item_roi = false;
         need_imshow = true;
         if (p->curse != CURSE_NONE) {
           paste_img(_curse_imgs[(int) p->curse], _gui_final, tlx, tly);
-          p->redraw_item_roi = false;
         }
         else if (p->item == ITEM_ROULETTE) {
           paste_img(_item_imgs[random_item()], _gui_final, tlx, tly);
-          p->redraw_item_roi = true;
+          p->redraw_item_roi = true; // redraw next frame
         }
         else if (p->item != ITEM_NONE) {
           paste_img(_item_imgs[p->item], _gui_final, tlx, tly);
-          p->redraw_item_roi = false;
         }
         else {// (CURSE_NONE && ITEM_NONE)
           cv::Rect roi(tlx, tly, _item_w, _item_w);
           cv::Mat3b item_roi(_gui_final(roi));
           _gui_bg(roi).copyTo(item_roi);
-          p->redraw_item_roi = false;
         }
-      } // end if need_redraw
+        if (_lakitu_status != LAKITU_INVISIBLE) // if lakitu visible, need to redraw on each frame
+          p->redraw_item_roi = true;
+      } // end if redraw_item_roi
     } // end for i
 
-    if (need_imshow) {
-      DEBUG_PRINT("imshow()-%g s!", _last_roulette_play.getTimeSeconds());
-      cv::imshow("rosmariokart", _gui_final);
+    if (_lakitu_status == LAKITU_LIGHT3) { // show lakitu going upwards
+      double alpha = _race_timer.getTimeSeconds() / 1.20;
+      // lakitu_roi.y -> -lakitu_roi.height
+      int y = (1. - alpha) * _lakitu_roi.y - alpha * _lakitu_roi.height;
+      paste_img(_lakitu_status_imgs[(int) _lakitu_status], _gui_final, _lakitu_roi.x, y);
+      need_imshow = true;
+      if (_race_timer.getTimeSeconds() > 1.20)
+        _lakitu_status = LAKITU_INVISIBLE;
     }
+
+    if (need_imshow)
+      imshow();
     char c = cv::waitKey(50);
-    DEBUG_PRINT("c:%i", c);
+    //DEBUG_PRINT("c:%i", c);
+    // check commands
     if (c == 27)
       ros::shutdown();
     else if (c == 'a')
       item_button_cb(0, true);
     else if (c == 'z')
       item_button_cb(1, true);
-    else if (c == 'q')
-      set_player_roulette(0);
-    else if (c == 's')
-      set_player_roulette(1);
+    else if (c == 'q' || c == 's')
+      set_players_roulette();
     else if (c == 81) // left
       sharp_turn_button_cb(-M_PI_2, 0, true);
     else if (c == 83) // right
@@ -337,9 +503,10 @@ public:
     else if (c == 84) // down
       sharp_turn_button_cb(-M_PI, 0, true);
     return true;
-  } // end refresh()
+  } // end refresh_race()
 
-protected:
+  //////////////////////////////////////////////////////////////////////////////
+
   static bool is_real_item(Item i) {
     return (i != ITEM_NONE && i != ITEM_ROULETTE);
   }
@@ -362,15 +529,39 @@ protected:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  bool set_player_roulette(unsigned int player_idx) {
-    DEBUG_PRINT("set_player_roulette(%i)", player_idx);
-    Player* p = &(_players[player_idx]);
-    if (p->item != ITEM_NONE)
+  bool imread_vector(std::vector<cv::Mat3b> & v,
+                     unsigned int idx,
+                     const std::string & filename,
+                     unsigned int width = -1) {
+    if (idx >= v.size()) {
+      ROS_WARN("Index '%i' out of range [0, %i]", idx, v.size());
       return false;
-    if (p->curse != CURSE_NONE)
+    }
+    std::string fullfilename = _data_path + filename;
+    cv:: Mat m = cv::imread(fullfilename , cv::IMREAD_COLOR);
+    if (m.empty()) {
+      ROS_WARN("Could not load image '%s'", fullfilename.c_str());
       return false;
-    p->receive_item(ITEM_ROULETTE);
-    p->roulette_timer.reset();
+    }
+    m.copyTo(v[idx]);
+    if (width > 0)
+      cv::resize(v[idx], v[idx], cv::Size(width , width ));
+    return true;
+  } // end imread_vector()
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool set_players_roulette() {
+    _last_roulette.reset();
+    // set roulette to everybody
+    for (unsigned int i = 0; i < _nplayers; ++i) {
+      Player* p = &(_players[i]);
+      // check player has no item or curse
+      if (p->item != ITEM_NONE || p->curse != CURSE_NONE)
+        continue;
+      p->receive_item(ITEM_ROULETTE);
+      p->roulette_timer.reset();
+    }
     return true;
   }
 
@@ -380,6 +571,8 @@ protected:
   bool sharp_turn_button_cb(double angle_rad,
                             unsigned int player_idx,
                             bool skip_repetition_check = false) {
+    if (player_idx >= _nplayers) // sanity check
+      return false;
     Player* p = &(_players[player_idx]);
     bool retval = false;
     if (fabs(angle_rad) > 1E-2
@@ -400,6 +593,8 @@ protected:
   bool item_button_cb(unsigned int player_idx,
                       bool skip_repetition_check = false) {
     DEBUG_PRINT("item_button_cb(%i, %i)", player_idx, skip_repetition_check);
+    if (player_idx >= _nplayers) // sanity check
+      return false;
     unsigned target_player_idx = (player_idx == 0 ? 1 : 0);
     Player* p = &(_players[player_idx]), *target = &(_players[target_player_idx]);
     // check what to do if Item_button
@@ -476,7 +671,7 @@ protected:
       p->receive_curse(CURSE_STAR, player_idx);
     }
     else if (pi == ITEM_ROULETTE) { // got a new item
-      if (pc == CURSE_NONE && rand() % 15 == 0) { // new TIMEBOMB!
+      if (pc == CURSE_NONE && drand48() <= _timebomb_likelihood) { // new TIMEBOMB!
         play_sound("timebomb.wav");
         p->receive_item(ITEM_NONE);
         p->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, player_idx);
@@ -495,39 +690,61 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   //! \player_idx starts at 0
-  void set_speed(unsigned int player_idx,
+  bool set_speed(unsigned int player_idx,
                  double v,
                  double w) {
-    DEBUG_PRINT("set_speed(%i, %g, %g)", player_idx, v, w);
+    //DEBUG_PRINT("set_speed(%i, %g, %g)", player_idx, v, w);
+    if (player_idx >= _nplayers) // sanity check
+      return false;
     Player* p = &(_players[player_idx]);
-    geometry_msgs::Twist vel;
-    vel.linear.x = v;
-    vel.angular.z = w;
     // now check for curses
     Curse c = p->curse;
-    if (c == CURSE_GOLDENMUSHROOM) {
-      vel.linear.x *= 5; // 500% faster
+    if (_game_status == GAME_STATUS_COUNTDOWN) {
+      if (c == CURSE_NONE && fabs(v) > .1) {
+        if (fabs(_countdown.getTimeSeconds() - (3+1.2)) < .2) { // second red light -> rocket start
+          DEBUG_PRINT("Player %i: rocket start!", player_idx);
+          p->receive_curse(CURSE_ROCKET_START, player_idx);
+        } else if (_countdown.getTimeSeconds() < 3+2.2) { // earlier than 200ms before green light -> dud start
+          DEBUG_PRINT("Player %i: dud start!", player_idx);
+          p->receive_curse(CURSE_DUD_START, player_idx);
+        }
+      } // end fabs(v) > .1
+      v = w = 0; // can't move during countdown!
+    } // end GAME_STATUS_COUNTDOWN
+    else if (c == CURSE_DUD_START) {
+      v *= .2; // sloowww
+      w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
+    }
+    else if (c == CURSE_GOLDENMUSHROOM) {
+      v *= 5; // 500% faster
     }
     else if (c == CURSE_LIGHTNING) {
       //ROS_WARN("%i:CURSE_LIGHTNING!", player_idx);
-      vel.linear.x *= .3; // half speed
-      vel.angular.z *= .3; // half speed
+      v *= .2; // half speed
+      w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
     }
     else if (c == CURSE_MIRROR) { // inverted commands
-      vel.linear.x *= -1;
-      vel.angular.z *= -1;
+      v *= -1;
+      w *= -1;
     }
     if (c == CURSE_MUSHROOM) {
-      vel.linear.x *= 5; // 500% faster
+      v *= 5; // 500% faster
     }
     else if (c == CURSE_REDSHELL_HIT || c == CURSE_TIMEBOMB_HIT) {
-      vel = geometry_msgs::Twist(); // no move
+      v = w = 0; // no move
+    }
+    else if (c == CURSE_ROCKET_START) {
+      v *= 5; // 500% faster
     }
     else if (c == CURSE_STAR) {
-      vel.linear.x *= 1.2; // 20% faster
+      v *= 1.2; // 20% faster
     }
 
+    geometry_msgs::Twist vel;
+    vel.linear.x = v;
+    vel.angular.z = w;
     p->cmd_vel_pub.publish(vel);
+    return true;
   } // end set_speed()
 
   //////////////////////////////////////////////////////////////////////////////
@@ -535,7 +752,9 @@ protected:
   //! \player_idx starts at 0
   void joy_cb(const sensor_msgs::Joy::ConstPtr& joy,
               unsigned int player_idx) {
-    DEBUG_PRINT("joy_cb(%i)", player_idx);
+    //DEBUG_PRINT("joy_cb(%i)", player_idx);
+    if (player_idx >= _nplayers) // sanity check
+      return;
     Player* p = &(_players[player_idx]);
     int naxes = joy->axes.size(), nbuttons = joy->buttons.size();
     if (naxes < _axis_90turn
@@ -543,18 +762,18 @@ protected:
         || naxes < _axis_linear
         || naxes < _axis_angular) {
       ROS_WARN_THROTTLE(1, "Only %i axes on joypad #%i!", naxes, player_idx);
-      p->joy_status = JOYPAD_BAD_AXES_NB;
+      p->joypad_status = JOYPAD_BAD_AXES_NB;
       return;
     }
     if (nbuttons < _button_item) {
       ROS_WARN_THROTTLE(1, "Only %i buttons on joypad #%i!", nbuttons, player_idx);
-      p->joy_status = JOYPAD_BAD_BUTTONS_NB;
+      p->joypad_status = JOYPAD_BAD_BUTTONS_NB;
       return;
     }
 
-    if (p->joy_status != JOYPAD_OK) // redraw item on joystick reconnect
+    if (p->joypad_status != JOYPAD_OK) // redraw item on joystick reconnect
       p->redraw_item_roi = true;
-    p->joy_status = JOYPAD_OK;
+    p->joypad_status = JOYPAD_OK;
     p->last_joy_updated.reset();
     // check sharp turns at 90° or 180°
     double angle = 0;
@@ -572,9 +791,7 @@ protected:
     }
 
     // cheat: trigger ROULETTE with button 0
-    if (joy->buttons[0]) {
-      set_player_roulette(player_idx);
-    }
+    //if (joy->buttons[0]) set_players_roulette();
 
     // if no command was sent till here: move robot with directions of axes
     if (command_sent)
@@ -591,7 +808,8 @@ protected:
     Player() { // ctor
       item = ITEM_NONE;
       curse = CURSE_NONE;
-      joy_status = JOYPAD_NEVER_RECEIVED;
+      joypad_status = JOYPAD_NEVER_RECEIVED;
+      robot_status = ROBOT_NEVER_RECEIVED;
       scale_linear = scale_angular = 1;
       item_button_before = sharp_turn_before = false;
       redraw_item_roi = true;
@@ -626,26 +844,32 @@ protected:
     ros::Publisher cmd_vel_pub, sharp_turn_pub, animation_pub;
     Item item;
     Curse curse;
-    joypadStatus joy_status;
+    JoypadStatus joypad_status;
+    RobotStatus robot_status;
     bool sharp_turn_before, item_button_before;
     double scale_angular, scale_linear;
     Timer curse_timer, roulette_timer, last_joy_updated;
     unsigned int curse_caster_idx;
-  }; // end struct Player
+  }; // end struct Player //////////////////////////////////////////////////////
 
+  GameStatus _game_status;
   ros::NodeHandle _nh_public, _nh_private;
   int _axis_linear, _axis_angular, _axis_90turn, _axis_180turn, _button_item;
-  Timer _last_roulette_play, _timebomb;
+  Timer _last_roulette_sound_play, _timebomb, _last_roulette, _countdown, _race_timer;
 
   // opencv stuff
   int _gui_w, _gui_h;
+  LakituStatus _lakitu_status;
+  cv::Rect _lakitu_roi;
   cv::Mat3b _gui_bg, _gui_final;
   unsigned int _nplayers;
   std::vector<Player> _players;
+  double _min_time_roulette, _timebomb_likelihood;
 
   // items
   std::string _data_path, _sound_path;
-  std::vector<cv::Mat3b> _item_imgs, _curse_imgs, _joypad_imgs;
+  std::vector<cv::Mat3b> _item_imgs, _curse_imgs, _joypad_status_imgs,
+  _robot_status_imgs, _lakitu_status_imgs;
   unsigned int _item_w; // pixels
   std::vector<double> _curse_timeout;
 }; // end class Rosmariokart

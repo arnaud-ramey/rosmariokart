@@ -1,0 +1,75 @@
+### parameters of the robot
+define mopi_robot position
+(
+  size [0.500 0.400 0.250]
+  block
+  (
+    points 4
+    point[0] [-0.25 -0.2]
+    point[1] [0.25 -0.2]
+    point[2] [0.25 0.2]
+    point[3] [-0.25 0.2]
+    z [0 1]
+  )
+
+  origin [-0.050 0.000 0.000 0.000]
+  gui_nose 1
+  drive "diff"
+
+  localization "gps"
+  # odometry error model parameters,
+  # only used if localization is set to "odom"
+  odom_error [0.03 0.03 0.00 0.05]
+)
+
+define floorplan model
+(
+  # sombre, sensible, artistic
+  color "gray30"
+
+  # most maps will need a bounding box
+  boundary 1
+
+  gui_nose 0
+  gui_grid 0
+
+  gui_outline 0
+  gripper_return 0
+  fiducial_return 0
+  # laser_return 1
+)
+
+# set the resolution of the underlying raytrace model in meters
+resolution 0.02
+
+interval_sim 100  # simulation timestep in milliseconds
+
+
+window
+(
+  size [ 1366 743 ] ### in pixels
+  #rotate [ 0.000 -1.560 ]
+  scale 50.000
+)
+
+# load an environment bitmap
+floorplan
+(
+  name "floor"
+  bitmap "bitmaps/Mariocircuit1.png"
+  size [15.000 15.000 0.500] # in meters
+  pose [ 0.000 0.000 0.000 0.000 ]
+)
+
+# throw in a robot
+mopi_robot(
+    pose [ 5.9 -1.800 0.000 90.000 ]
+    name "sumo1"
+    color "yellow"
+)
+# throw in a robot
+mopi_robot(
+    pose [ 6.50 -1.800 0.000 90.000 ]
+    name "sumo2"
+    color "white"
+)

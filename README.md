@@ -104,23 +104,29 @@ Images
 
   - `doc/ori-robot-mip-noir-wowwee-1280.jpg`:
     [robot-advance.com](http://www.robot-advance.com/ori-robot-mip-noir-wowwee-1280.jpg)
-  - `items/BooCurse.png`:
+  - `data/items/BooCurse.png`:
     [nocookie.net](http://fantendo.wikia.com/wiki/Boo_%28species%29)
-  - `items/jumping_sumo_brown.jpg`:
+  - `data/items/jumping_sumo_brown.jpg`:
     [amain.com](http://images.amain.com/images/large/pta/ptapf724002.jpg)
-  - `items/joypad.png`:
+  - `data/items/joypad.png`:
     [myiconfinder.com](http://www.myiconfinder.com/icon/console-control-game-games-joy-joystick-manipulator-joypad-pad-joy-color-4-flat-metro-ui-dock/2533)
-  - `items/TimeBomb.png`:
+  - `data/items/TimeBomb.png`:
     [isthisabomb.com](http://isthisabomb.com/img/18.png)
-  - `items/TimeBombCurse.png`:
-    [pixabay.com](https://pixabay.com/en/explosion-detonation-blast-burst-155624/)
-  - `robots/random_robot.png`:
+  - `data/items/RocketStartCurse.png`:
+    [isthisabomb.com](http://isthisabomb.com/img/18.png)
+  - `data/items/TimeBombCurse.png`:
+    [mariowiki.com](http://www.mariowiki.com/images/d/de/Rocket_Start_%28Mario_Kart_8%29.jpg)
+  - `data/lakitu/*.png`:
+    [press-select.fr](http://www.press-select.fr/wp-content/uploads/2014/05/lakitu.png)
+    [mariofusion.free.fr](http://mariofusion.free.fr/images/champi-musee/lakitu/lakitu-smk.jpg)
+    [deviantart.net](http://img09.deviantart.net/7014/i/2009/264/6/d/mario_kart_collab___lakitu_by_sibsy.jpg)
+  - `data/robots/random_robot.png`:
     [openclipart.org](https://openclipart.org/detail/170101/cartoon-robot)
-  - `robots/stage_black_bg.png`:
+  - `data/robots/stage_black_bg.png`:
     [playerstage.org](http://playerstage.sourceforge.net/doc/stage-svn/index.html)
-  - `robots/white_mip_black_bg.png`:
+  - `data/robots/white_mip_black_bg.png`:
     [wowwee.com](http://store.wowwee.com/images/products/personalizations/2049.jpg)
-  - `robots/white_sumo_black_bg.png`:
+  - `data/robots/white_sumo_black_bg.png`:
     [parrot.com](http://www.parrot.com/media/slideshows/slides/2015/01/26/165619437566.jpg)
 
 Sounds

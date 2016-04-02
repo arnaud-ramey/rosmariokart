@@ -8,7 +8,7 @@
     <param name="autorepeat_rate" value="25" />
   </node>
   <!-- MIP driver -->
-  <node pkg="rosmip" type="rosmip.exe" name="mip" respawn="false" output="screen"
+  <node pkg="rosmip" type="rosmip.exe" name="mip" respawn="true" output="screen"
         args="_device_mac:=00:19:0E:16:AF:22  _mip_mac:=D0:39:72:B7:AF:66
               _use_odometry_speed:=true" />
   <!-- mip animations

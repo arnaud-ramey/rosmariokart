@@ -56,8 +56,6 @@ window
 floorplan
 (
   name "floor"
-  #~ bitmap "bitmaps/room_with_dock.png"
-  #~ bitmap "bitmaps/Mariocircuit1.png"
   bitmap "bitmaps/empty.png"
   size [15.000 15.000 0.500] # in meters
   pose [ 0.000 0.000 0.000 0.000 ]

@@ -4,7 +4,10 @@
 
 <!-- stage -->
 <node pkg="stage_ros" type="stageros" name="stageros" required="true"
-      args="$(find rosmariokart)/config/race.world"/>
+      args="$(find rosmariokart)/config/Mariocircuit1.world"/>
+<!--
+      args="$(find rosmariokart)/config/empty.world"/>
+-->
 
 <!-- first joystick -->
 <group ns="robot_0">
@@ -34,8 +37,12 @@
   <param name="axis_90turn" value="4"/>
   <param name="axis_180turn" value="5"/>
   <param name="button_item" value="3"/>
+<!--
   <param name="gui_w" value="300"/>
   <param name="gui_h" value="150"/>
+-->
+  <param name="gui_w" value="400"/>
+  <param name="gui_h" value="200"/>
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>
 </node>
