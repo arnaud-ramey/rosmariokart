@@ -134,7 +134,7 @@ Sounds
 
   - `starman.wav`:
     [superluigibros.com](http://www.superluigibros.com/mario-kart-64-sound-effects-wav)
-  - `boost.wav, boosteal.wav, cpuspin.wav, cputhrow.wav, gotitem.wav, itemreel.wav, racestart.wav`:
+  - `boost.wav, boosteal.wav, cpuspin.wav, cputhrow.wav, gotitem.wav, itemreel.wav, racestart.wav, spinout.wav`:
     [superluigibros.com](http://www.superluigibros.com/super-mario-kart-sound-effects-wav)
   - `mk64_countdown.wav`:
     [themushroomkingdom.net](http://themushroomkingdom.net/media/mk64/wav)

@@ -26,83 +26,14 @@ ________________________________________________________________________________
  */
 // third parties
 #include "rosmariokart/rosmariokart.h"
-#include <ros/ros.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/Joy.h>
 #include <ros/package.h>
-#include <opencv2/imgproc/imgproc.hpp>
-
-//#define DEBUG_PRINT(...)   {}
-//#define DEBUG_PRINT(...)   ROS_INFO_THROTTLE(5, __VA_ARGS__)
-#define DEBUG_PRINT(...)   ROS_WARN(__VA_ARGS__)
 
 class Rosmariokart {
 public:
-  enum GameStatus {
-    GAME_STATUS_WAITING   = 0, // waiting for robots or joypads
-    GAME_STATUS_COUNTDOWN = 1, // countdown + lakitu
-    GAME_STATUS_RACE      = 2, // race time
-    GAME_STATUS_RACE_OVER = 3, // players cant move anymore
-    NGAME_STATUES         = 4
-  };
-  enum Item {
-    ITEM_NONE            = 0,
-    ITEM_BOO             = 1,
-    ITEM_GOLDENMUSHROOM  = 2,
-    ITEM_LIGHTNING       = 3,
-    ITEM_MIRROR          = 4,
-    ITEM_MUSHROOM        = 5,
-    ITEM_REDSHELL        = 6,
-    ITEM_REDSHELL2       = 7,
-    ITEM_REDSHELL3       = 8,
-    ITEM_STAR            = 9,
-    ITEM_ROULETTE        = 10,
-    NITEMS               = 11,
-  };
-  enum Curse {
-    CURSE_NONE               = 0,
-    CURSE_BOO                = 1,
-    CURSE_DUD_START          = 2, // missed rocket start - http://www.mariowiki.com/Rocket_Start
-    CURSE_GOLDENMUSHROOM     = 3,
-    CURSE_LIGHTNING          = 4,
-    CURSE_MIRROR             = 5,
-    CURSE_MUSHROOM           = 6,
-    CURSE_REDSHELL_COMING    = 7,
-    CURSE_REDSHELL_HIT       = 8,
-    CURSE_ROCKET_START       = 9, // missed rocket start - http://www.mariowiki.com/Rocket_Start
-    CURSE_STAR               = 10,
-    CURSE_TIMEBOMB_COUNTDOWN = 11,
-    CURSE_TIMEBOMB_HIT       = 12,
-    NCURSES                  = 13
-  };
-  enum JoypadStatus {
-    JOYPAD_NEVER_RECEIVED = 0,
-    JOYPAD_OK             = 1,
-    JOYPAD_BAD_AXES_NB    = 2,
-    JOYPAD_BAD_BUTTONS_NB = 3,
-    JOYPAD_TIMEOUT        = 4,
-    NJOYPAD_STATUSES      = 5
-  };
-  enum RobotStatus {
-    ROBOT_NEVER_RECEIVED = 0,
-    ROBOT_OK             = 1,
-    ROBOT_TIMEOUT        = 2,
-    NROBOT_STATUSES      = 3
-  };
-  enum LakituStatus {
-    LAKITU_INVISIBLE      = 0,
-    LAKITU_LIGHT0         = 1,
-    LAKITU_LIGHT1         = 2,
-    LAKITU_LIGHT2         = 3,
-    LAKITU_LIGHT3         = 4,
-    LAKITU_RACE_OVER      = 5,
-    NLAKITU_STATUSES      = 6
-  };
-
-  //////////////////////////////////////////////////////////////////////////////
-
   Rosmariokart() : _nh_private("~") {
     // gui params
     _nh_private.param("gui_w", _gui_w, 800);
@@ -203,52 +134,52 @@ public:
 
     // load Items
     _item_imgs.resize(NITEMS, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_item_imgs, ITEM_BOO, "items/Boo.png", _item_w);
-    imread_vector(_item_imgs, ITEM_GOLDENMUSHROOM, "items/GoldenMushroom.png", _item_w);
-    imread_vector(_item_imgs, ITEM_LIGHTNING, "items/Lightning.png", _item_w);
-    imread_vector(_item_imgs, ITEM_MIRROR, "items/Mirror.png", _item_w);
-    imread_vector(_item_imgs, ITEM_MUSHROOM, "items/Mushroom.png", _item_w);
-    imread_vector(_item_imgs, ITEM_REDSHELL, "items/RedShell.png", _item_w);
-    imread_vector(_item_imgs, ITEM_REDSHELL2, "items/RedShell2.png", _item_w);
-    imread_vector(_item_imgs, ITEM_REDSHELL3, "items/RedShell3.png", _item_w);
-    imread_vector(_item_imgs, ITEM_STAR, "items/Star.png", _item_w);
+    imread_vector(_item_imgs, ITEM_BOO, _data_path + "items/Boo.png", _item_w);
+    imread_vector(_item_imgs, ITEM_GOLDENMUSHROOM, _data_path + "items/GoldenMushroom.png", _item_w);
+    imread_vector(_item_imgs, ITEM_LIGHTNING, _data_path + "items/Lightning.png", _item_w);
+    imread_vector(_item_imgs, ITEM_MIRROR, _data_path + "items/Mirror.png", _item_w);
+    imread_vector(_item_imgs, ITEM_MUSHROOM, _data_path + "items/Mushroom.png", _item_w);
+    imread_vector(_item_imgs, ITEM_REDSHELL, _data_path + "items/RedShell.png", _item_w);
+    imread_vector(_item_imgs, ITEM_REDSHELL2, _data_path + "items/RedShell2.png", _item_w);
+    imread_vector(_item_imgs, ITEM_REDSHELL3, _data_path + "items/RedShell3.png", _item_w);
+    imread_vector(_item_imgs, ITEM_STAR, _data_path + "items/Star.png", _item_w);
     // load curses
     _curse_imgs.resize(NCURSES, cv::Mat3b(_item_w, _item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_curse_imgs, CURSE_BOO, "items/BooCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_DUD_START, "items/DudStartCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, "items/GoldenMushroomCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_LIGHTNING, "items/LightningCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_MIRROR, "items/MirrorCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_MUSHROOM, "items/MushroomCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_REDSHELL_HIT, "items/RedShellCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_REDSHELL_COMING, "items/RedShellComing.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_ROCKET_START, "items/RocketStartCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_STAR, "items/StarCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_TIMEBOMB_COUNTDOWN, "items/TimeBombCountdown.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_TIMEBOMB_HIT, "items/TimeBombCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_BOO, _data_path + "items/BooCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_DUD_START, _data_path + "items/DudStartCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, _data_path + "items/GoldenMushroomCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_LIGHTNING, _data_path + "items/LightningCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_MIRROR, _data_path + "items/MirrorCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_MUSHROOM, _data_path + "items/MushroomCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_REDSHELL_HIT, _data_path + "items/RedShellCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_REDSHELL_COMING, _data_path + "items/RedShellComing.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_ROCKET_START, _data_path + "items/RocketStartCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_STAR, _data_path + "items/StarCurse.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_TIMEBOMB_COUNTDOWN, _data_path + "items/TimeBombCountdown.png", _item_w);
+    imread_vector(_curse_imgs, CURSE_TIMEBOMB_HIT, _data_path + "items/TimeBombCurse.png", _item_w);
     // load joypad statues
     _joypad_status_imgs.resize(NJOYPAD_STATUSES, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_joypad_status_imgs, JOYPAD_OK, "warnings/joypadOK.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_BAD_AXES_NB, "warnings/joypadError.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_BAD_BUTTONS_NB, "warnings/joypadError.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_NEVER_RECEIVED, "warnings/joypadWarning.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_TIMEOUT, "warnings/joypadWarning.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_OK, _data_path + "warnings/joypadOK.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_BAD_AXES_NB, _data_path + "warnings/joypadError.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_BAD_BUTTONS_NB, _data_path + "warnings/joypadError.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_NEVER_RECEIVED, _data_path + "warnings/joypadWarning.png", _item_w);
+    imread_vector(_joypad_status_imgs, JOYPAD_TIMEOUT, _data_path + "warnings/joypadWarning.png", _item_w);
     // load robot statuses
     _robot_status_imgs.resize(NROBOT_STATUSES, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_robot_status_imgs, ROBOT_OK, "warnings/robotOK.png", _item_w);
-    imread_vector(_robot_status_imgs, ROBOT_NEVER_RECEIVED, "warnings/robotWarning.png", _item_w);
-    imread_vector(_robot_status_imgs, ROBOT_TIMEOUT, "warnings/robotWarning.png", _item_w);
+    imread_vector(_robot_status_imgs, ROBOT_OK, _data_path + "warnings/robotOK.png", _item_w);
+    imread_vector(_robot_status_imgs, ROBOT_NEVER_RECEIVED, _data_path + "warnings/robotWarning.png", _item_w);
+    imread_vector(_robot_status_imgs, ROBOT_TIMEOUT, _data_path + "warnings/robotWarning.png", _item_w);
     // load lakitu statuses
     int lw = std::min(_gui_w, _gui_h);
     _lakitu_roi.width = _lakitu_roi.height = lw;
     _lakitu_roi.x = (_gui_w - lw) / 2;
     _lakitu_roi.y = (_gui_h - lw) / 2;
     _lakitu_status_imgs.resize(NLAKITU_STATUSES, cv::Mat3b(lw,lw, cv::Vec3b(0, 0, 255)));
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT0, "lakitu/0.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT1, "lakitu/1.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT2, "lakitu/2.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT3, "lakitu/3.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_RACE_OVER, "lakitu/finish.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT0, _data_path + "lakitu/0.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT1, _data_path + "lakitu/1.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT2, _data_path + "lakitu/2.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT3, _data_path + "lakitu/3.png", lw);
+    imread_vector(_lakitu_status_imgs, LAKITU_RACE_OVER, _data_path + "lakitu/finish.png", lw);
 
     restart_race();
   }
@@ -507,47 +438,11 @@ protected:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  static bool is_real_item(Item i) {
-    return (i != ITEM_NONE && i != ITEM_ROULETTE);
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  Item random_item() const {
-    //return ITEM_LIGHTNING; // debug test
-    Item i = (Item) (rand() % NITEMS);
-    return (is_real_item(i) ? i : random_item());
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
   bool play_sound(const std::string & filename) const {
     std::ostringstream cmd;
     cmd << "aplay --quiet " << _sound_path << filename << " &";
     return (system(cmd.str().c_str()) == 0);
   }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  bool imread_vector(std::vector<cv::Mat3b> & v,
-                     unsigned int idx,
-                     const std::string & filename,
-                     unsigned int width = -1) {
-    if (idx >= v.size()) {
-      ROS_WARN("Index '%i' out of range [0, %i]", idx, v.size());
-      return false;
-    }
-    std::string fullfilename = _data_path + filename;
-    cv:: Mat m = cv::imread(fullfilename , cv::IMREAD_COLOR);
-    if (m.empty()) {
-      ROS_WARN("Could not load image '%s'", fullfilename.c_str());
-      return false;
-    }
-    m.copyTo(v[idx]);
-    if (width > 0)
-      cv::resize(v[idx], v[idx], cv::Size(width , width ));
-    return true;
-  } // end imread_vector()
 
   //////////////////////////////////////////////////////////////////////////////
 
