@@ -201,13 +201,13 @@ public:
 
   bool finish_race() {
     DEBUG_PRINT("Status: GAME_STATUS_RACE_OVER;");
-    system("killall play");
-    play_sound("you-win.mp3");
+    bool ok = (system("killall play") == 0);
+    ok = ok && play_sound("you-win.mp3");
     _countdown.reset();
     _game_status = GAME_STATUS_RACE_OVER;
     _lakitu_status = LAKITU_RACE_OVER;
     reset_players_curses_items();
-    return true;
+    return ok;
   } // end finish_race()
 
   //////////////////////////////////////////////////////////////////////////////
@@ -401,7 +401,8 @@ protected:
 
     // draw what needs to be drawn
     bool need_imshow = false;
-    if (_lakitu_status == LAKITU_LIGHT3) // will show lakitu going upwards -> need bg
+    if (_lakitu_status == LAKITU_LIGHT3
+        || _lakitu_status == LAKITU_RACE_OVER) // will show lakitu going upwards -> need bg
       _gui_bg.copyTo(_gui_final);
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
@@ -681,30 +682,30 @@ protected:
     else if (_game_status == GAME_STATUS_RACE) {
       if (c == CURSE_DUD_START) {
         v *= .2; // sloowww
-        w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
+        w += .3 * p->scale_angular * cos(5*_race_timer.getTimeSeconds()); // oscillate
       }
       else if (c == CURSE_GOLDENMUSHROOM)
-        v *= 5; // 500% faster
+        v *= 2; // 200% faster
       else if (c == CURSE_LIGHTNING) {
         //ROS_WARN("%i:CURSE_LIGHTNING!", player_idx);
         v *= .2; // half speed
-        w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
+        w += .3 * p->scale_angular * cos(5*_race_timer.getTimeSeconds()); // oscillate
       }
       else if (c == CURSE_MIRROR) { // inverted commands
         v *= -1;
         w *= -1;
       }
       if (c == CURSE_MUSHROOM)
-        v *= 5; // 500% faster
+        v *= 2; // 200% faster
       else if (c == CURSE_REDSHELL_HIT || c == CURSE_TIMEBOMB_HIT)
         v = w = 0; // no move
       else if (c == CURSE_ROCKET_START)
-        v *= 5; // 500% faster
+        v *= 2; // 200% faster
       else if (c == CURSE_STAR)
         v *= 1.2; // 20% faster
     } // end if GAME_STATUS_RACE
 
-    if (_game_status == GAME_STATUS_RACE_OVER) {
+    else if (_game_status == GAME_STATUS_RACE_OVER) {
       v = w = 0; // can't move when race over
     } // end if GAME_STATUS_RACE_OVER
 

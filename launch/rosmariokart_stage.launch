@@ -49,9 +49,9 @@
 <!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" >
-  <param name="axis_linear" value="1"/>
-  <param name="axis_angular" value="0"/>
-  <param name="axis_90turn" value="4"/>
+   <param name="axis_linear" value="3"/>
+    <param name="axis_angular" value="0"/>
+   <param name="axis_90turn" value="4"/>
   <param name="axis_180turn" value="5"/>
   <param name="button_item" value="3"/>
 <!--
@@ -60,12 +60,11 @@
 -->
   <param name="gui_w" value="400"/>
   <param name="gui_h" value="200"/>
-  <param name="gui_h" value="200"/>
   <param name="race_duration" value="15"/>
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>
-  <param name="player3_name" value="robot_2"/>
 <!--
+  <param name="player3_name" value="robot_2"/>
   <param name="player4_name" value="robot_3"/>
 -->
 </node>
