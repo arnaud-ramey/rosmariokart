@@ -39,20 +39,8 @@ public:
     _nh_private.param("gui_w", _gui_w, 800);
     _nh_private.param("gui_h", _gui_h, 600);
     _nh_private.param("min_time_roulette", _min_time_roulette, 10.);
-    _nh_private.param("timebomb_likelihood", _timebomb_likelihood, .05); // 5%
-    // player params
-    Player p1, p2, p3, p4;
-    _nh_private.param("player1_name", p1.name, std::string("player1"));
-    _players.push_back(p1);
-    _nh_private.param("player2_name", p2.name, std::string("player2"));
-    _players.push_back(p2);
-    _nh_private.param("player3_name", p3.name, std::string(""));
-    if (p3.name.length() > 0)
-      _players.push_back(p3);
-    _nh_private.param("player4_name", p4.name, std::string(""));
-    if (p4.name.length() > 0)
-      _players.push_back(p4);
-    _nplayers = _players.size();
+    _nh_private.param("timebomb_likelihood", _timebomb_likelihood, 0.03); // 3%
+    _nh_private.param("race_duration", _race_duration, 80.); // seconds = 1 min 20
     // item params
     _curse_timeout.resize(NCURSES, 10);
     _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 3.);
@@ -66,13 +54,25 @@ public:
     _nh_private.param("curse_rocket_start_timeout", _curse_timeout[CURSE_ROCKET_START], 5.);
     _nh_private.param("curse_star_timeout", _curse_timeout[CURSE_STAR], 3.130);
     _nh_private.param("curse_timebomb_hit_timeout", _curse_timeout[CURSE_TIMEBOMB_HIT], 3.);
-
     // joy params
     _nh_private.param("axis_180turn", _axis_180turn, 4);
     _nh_private.param("axis_90turn", _axis_90turn, 3);
     _nh_private.param("axis_angular", _axis_angular, 2);
     _nh_private.param("axis_linear", _axis_linear, 1);
     _nh_private.param("button_item", _button_item, 3);
+    // player params
+    Player p1, p2, p3, p4;
+    _nh_private.param("player1_name", p1.name, std::string("player1"));
+    _players.push_back(p1);
+    _nh_private.param("player2_name", p2.name, std::string("player2"));
+    _players.push_back(p2);
+    _nh_private.param("player3_name", p3.name, std::string(""));
+    if (p3.name.length() > 0)
+      _players.push_back(p3);
+    _nh_private.param("player4_name", p4.name, std::string(""));
+    if (p4.name.length() > 0)
+      _players.push_back(p4);
+    _nplayers = _players.size();
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
@@ -189,8 +189,23 @@ public:
   bool restart_race() {
     _game_status = GAME_STATUS_WAITING;
     _lakitu_status = LAKITU_INVISIBLE;
+    _last_lap_played = false;
+    reset_players_curses_items();
     return true;
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool finish_race() {
+    DEBUG_PRINT("Status: GAME_STATUS_RACE_OVER;");
+    system("killall play");
+    play_sound("you-win.mp3");
+    _countdown.reset();
+    _game_status = GAME_STATUS_RACE_OVER;
+    _lakitu_status = LAKITU_RACE_OVER;
+    reset_players_curses_items();
+    return true;
+  } // end finish_race()
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -204,7 +219,7 @@ public:
         return refresh_race();
       case GAME_STATUS_RACE_OVER:
       default:
-        return refresh_race();
+        return refresh_race_over();
     }
   } // end refresh()
 
@@ -258,6 +273,7 @@ protected:
     // check state changes
     if (checkok) { // start countdown
       DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN");
+      play_sound("begin-race.mp3");
       _game_status = GAME_STATUS_COUNTDOWN;
       _lakitu_status = LAKITU_LIGHT0;
       _gui_bg.copyTo(_gui_final);
@@ -281,6 +297,7 @@ protected:
       _race_timer.reset();
       _lakitu_status = LAKITU_LIGHT3;
       _game_status = GAME_STATUS_RACE;
+      play_sound("battle-mode.mp3");
       // play a mushroom sound if needed
       bool play_dud = false, play_rocket = false;
       for (unsigned int i = 0; i < _nplayers; ++i) {
@@ -325,6 +342,14 @@ protected:
       if (c == 27)
         ros::shutdown();
       return false;
+    }
+    // check state changes
+    if (_race_timer.getTimeSeconds() > _race_duration)
+      finish_race();
+    else if (_race_timer.getTimeSeconds() > _race_duration - 10
+             && !_last_lap_played) {
+      _last_lap_played = true;
+      play_sound("last-lap.mp3");
     }
 
     // check items
@@ -438,9 +463,27 @@ protected:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  bool refresh_race_over() {
+    bool checkok = check_draw_joypads_robots();
+    double time = _countdown.getTimeSeconds();
+    if (time <= 3) {
+      double alpha = time / 3;
+      int y = -(1-alpha) * _gui_h + alpha * _lakitu_roi.y;
+      paste_img(_lakitu_status_imgs[(int) _lakitu_status], _gui_final, _lakitu_roi.x, y);
+      imshow();
+    }
+    char c = cv::waitKey(50);
+    if (c == 27)
+      ros::shutdown();
+    return checkok;
+  } // end refresh_race_over()
+
+  //////////////////////////////////////////////////////////////////////////////
+
   bool play_sound(const std::string & filename) const {
     std::ostringstream cmd;
-    cmd << "aplay --quiet " << _sound_path << filename << " &";
+    //cmd << "aplay --quiet " << _sound_path << filename << " &";
+    cmd << "play --no-show-progress " << _sound_path << filename << " &";
     return (system(cmd.str().c_str()) == 0);
   }
 
@@ -458,6 +501,16 @@ protected:
       p->roulette_timer.reset();
     }
     return true;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  void reset_players_curses_items() {
+    for (unsigned int i = 0; i < _nplayers; ++i) {
+      _players[i].curse = CURSE_NONE;
+      _players[i].item= ITEM_NONE;
+      _players[i].redraw_item_roi = true;
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -566,7 +619,7 @@ protected:
       p->receive_curse(CURSE_STAR, player_idx);
     }
     else if (pi == ITEM_ROULETTE) { // got a new item
-      if (pc == CURSE_NONE && drand48() <= _timebomb_likelihood) { // new TIMEBOMB!
+      if (pc == CURSE_NONE && drand48() < _timebomb_likelihood) { // new TIMEBOMB!
         play_sound("timebomb.wav");
         p->receive_item(ITEM_NONE);
         p->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, player_idx);
@@ -594,7 +647,11 @@ protected:
     Player* p = &(_players[player_idx]);
     // now check for curses
     Curse c = p->curse;
-    if (_game_status == GAME_STATUS_COUNTDOWN) {
+    if (_game_status == GAME_STATUS_WAITING) {
+      v = w = 0; // can't move during waiting
+    } // end if GAME_STATUS_WAITING
+
+    else if (_game_status == GAME_STATUS_COUNTDOWN) {
       if (c == CURSE_NONE && fabs(v) > .1) {
         if (fabs(_countdown.getTimeSeconds() - (3+1.2)) < .2) { // second red light -> rocket start
           DEBUG_PRINT("Player %i: rocket start!", player_idx);
@@ -605,35 +662,38 @@ protected:
         }
       } // end fabs(v) > .1
       v = w = 0; // can't move during countdown!
-    } // end GAME_STATUS_COUNTDOWN
-    else if (c == CURSE_DUD_START) {
-      v *= .2; // sloowww
-      w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
-    }
-    else if (c == CURSE_GOLDENMUSHROOM) {
-      v *= 5; // 500% faster
-    }
-    else if (c == CURSE_LIGHTNING) {
-      //ROS_WARN("%i:CURSE_LIGHTNING!", player_idx);
-      v *= .2; // half speed
-      w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
-    }
-    else if (c == CURSE_MIRROR) { // inverted commands
-      v *= -1;
-      w *= -1;
-    }
-    if (c == CURSE_MUSHROOM) {
-      v *= 5; // 500% faster
-    }
-    else if (c == CURSE_REDSHELL_HIT || c == CURSE_TIMEBOMB_HIT) {
-      v = w = 0; // no move
-    }
-    else if (c == CURSE_ROCKET_START) {
-      v *= 5; // 500% faster
-    }
-    else if (c == CURSE_STAR) {
-      v *= 1.2; // 20% faster
-    }
+    } // end if GAME_STATUS_COUNTDOWN
+
+    else if (_game_status == GAME_STATUS_RACE) {
+      if (c == CURSE_DUD_START) {
+        v *= .2; // sloowww
+        w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
+      }
+      else if (c == CURSE_GOLDENMUSHROOM)
+        v *= 5; // 500% faster
+      else if (c == CURSE_LIGHTNING) {
+        //ROS_WARN("%i:CURSE_LIGHTNING!", player_idx);
+        v *= .2; // half speed
+        w += p->scale_linear * cos(2*_race_timer.getTimeSeconds()); // oscillate
+      }
+      else if (c == CURSE_MIRROR) { // inverted commands
+        v *= -1;
+        w *= -1;
+      }
+      if (c == CURSE_MUSHROOM)
+        v *= 5; // 500% faster
+      else if (c == CURSE_REDSHELL_HIT || c == CURSE_TIMEBOMB_HIT)
+        v = w = 0; // no move
+      else if (c == CURSE_ROCKET_START)
+        v *= 5; // 500% faster
+      else if (c == CURSE_STAR)
+        v *= 1.2; // 20% faster
+    } // end if GAME_STATUS_RACE
+
+    if (_game_status == GAME_STATUS_RACE_OVER) {
+      v = w = 0; // can't move when race over
+    } // end if GAME_STATUS_RACE_OVER
+
 
     geometry_msgs::Twist vel;
     vel.linear.x = v;
@@ -747,24 +807,28 @@ protected:
     unsigned int curse_caster_idx;
   }; // end struct Player //////////////////////////////////////////////////////
 
+  unsigned int _nplayers;
+  std::vector<Player> _players;
   GameStatus _game_status;
-  ros::NodeHandle _nh_public, _nh_private;
+  LakituStatus _lakitu_status;
+  double _min_time_roulette, _timebomb_likelihood;
   int _axis_linear, _axis_angular, _axis_90turn, _axis_180turn, _button_item;
   Timer _last_roulette_sound_play, _timebomb, _last_roulette, _countdown, _race_timer;
+  Timer::Time _race_duration;
+  bool _last_lap_played;
+
+  // ros stuff
+  ros::NodeHandle _nh_public, _nh_private;
 
   // opencv stuff
   int _gui_w, _gui_h;
-  LakituStatus _lakitu_status;
   cv::Rect _lakitu_roi;
   cv::Mat3b _gui_bg, _gui_final;
-  unsigned int _nplayers;
-  std::vector<Player> _players;
-  double _min_time_roulette, _timebomb_likelihood;
+  std::vector<cv::Mat3b> _item_imgs, _curse_imgs, _joypad_status_imgs,
+  _robot_status_imgs, _lakitu_status_imgs;
 
   // items
   std::string _data_path, _sound_path;
-  std::vector<cv::Mat3b> _item_imgs, _curse_imgs, _joypad_status_imgs,
-  _robot_status_imgs, _lakitu_status_imgs;
   unsigned int _item_w; // pixels
   std::vector<double> _curse_timeout;
 }; // end class Rosmariokart
@@ -774,6 +838,7 @@ protected:
 int main(int argc, char** argv) {
   ros::init(argc, argv, "rosmariokart");
   srand(time(NULL));
+  srand48(time(NULL));
   Rosmariokart mariokart;
   //ros::AsyncSpinner spinner(0);
   //spinner.start();

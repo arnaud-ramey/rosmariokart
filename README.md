@@ -2,8 +2,7 @@
 
 A "mariokart" clone, but made for real robots.
 <p align="center">
-<img src="https://raw.githubusercontent.com/arnaud-ramey/rosmariokart/master/doc/logo.png"
-   alt="sumo" style="width: 300px"/>
+<img src="doc/logo.png" alt="sumo" style="width: 300px"/>
 </p>
 
 
@@ -132,16 +131,18 @@ Images
 Sounds
 ------
 
-  - `starman.wav`:
-    [superluigibros.com](http://www.superluigibros.com/mario-kart-64-sound-effects-wav)
+  - `battle-mode.mp3`, `begin-race.mp3`, `last-lap.mp3`, `you-win.mp3`:
+    [khinsider.com](http://downloads.khinsider.com/game-soundtracks/album/super-mario-kart-original-soundtrack)
   - `boost.wav, boosteal.wav, cpuspin.wav, cputhrow.wav, gotitem.wav, itemreel.wav, racestart.wav, spinout.wav`:
     [superluigibros.com](http://www.superluigibros.com/super-mario-kart-sound-effects-wav)
-  - `mk64_countdown.wav`:
-    [themushroomkingdom.net](http://themushroomkingdom.net/media/mk64/wav)
   - `lightning.wav`:
     [youtube.com](https://www.youtube.com/watch?v=IXUoY_KgCko)
+  - `mk64_countdown.wav`:
+    [themushroomkingdom.net](http://themushroomkingdom.net/media/mk64/wav)
   - `quartz.wav`:
     [freesound.org](https://www.freesound.org/people/quartzgate/sounds/177868/)
+  - `starman.wav`:
+    [superluigibros.com](http://www.superluigibros.com/mario-kart-64-sound-effects-wav)
   - `timebomb.wav`:
     [soundbible.com](http://soundbible.com/1203-Time-Bomb.html)
 

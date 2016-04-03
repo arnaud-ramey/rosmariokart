@@ -257,7 +257,7 @@ inline std::string cast2string(const _T in) {
 
 class Timer {
 public:
-  typedef float Time;
+  typedef double Time;
   static const Time NOTIME = -1;
   Timer() { reset(); }
   virtual inline void reset() {
