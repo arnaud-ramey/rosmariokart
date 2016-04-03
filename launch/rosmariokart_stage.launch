@@ -18,13 +18,30 @@
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
-
 <!-- second joystick -->
 <group ns="robot_1">
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy2" output="screen" >
     <param name="dev" value="/dev/input/js2" />
+    <param name="autorepeat_rate" value="25" />
+  </node>
+</group>
+<!-- third joystick -->
+<group ns="robot_2">
+  <param name="scale_linear" value=".5"/>
+  <param name="scale_angular" value=".5"/>
+  <node pkg="joy" type="joy_node" name="joy3" output="screen" >
+    <param name="dev" value="/dev/input/js3" />
+    <param name="autorepeat_rate" value="25" />
+  </node>
+</group>
+<!-- fourth joystick -->
+<group ns="robot_2">
+  <param name="scale_linear" value=".5"/>
+  <param name="scale_angular" value=".5"/>
+  <node pkg="joy" type="joy_node" name="joy4" output="screen" >
+    <param name="dev" value="/dev/input/js4" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -47,6 +64,10 @@
   <param name="race_duration" value="15"/>
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>
+  <param name="player3_name" value="robot_2"/>
+<!--
+  <param name="player4_name" value="robot_3"/>
+-->
 </node>
 
 </launch>

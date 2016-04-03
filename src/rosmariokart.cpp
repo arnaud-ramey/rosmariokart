@@ -98,17 +98,20 @@ public:
     // configure GUI
     if (_nplayers == 2) {
       _item_w = std::min(_gui_w / 2, _gui_h);
+      int paddingw = (_gui_w - 2 * _item_w) / 2;
       int paddingh = (_gui_h - _item_w) / 2;
-      _players[0].item_roi  = cv::Point(0,paddingh);
+      _players[0].item_roi  = cv::Point(paddingw, paddingh);
       _players[1].item_roi  = cv::Point(_gui_w/2, paddingh);
     }
-    else if (_nplayers == 3) {
-      ROS_FATAL("Not implemented");
-      ros::shutdown();
-    }
-    else if (_nplayers == 4) {
-      ROS_FATAL("Not implemented");
-      ros::shutdown();
+    else if (_nplayers == 3 || _nplayers == 4) {
+      _item_w = std::min(_gui_w / 2, _gui_h / 2);
+      int paddingw = (_gui_w - 2 * _item_w) / 2;
+      int paddingh = (_gui_h - 2 * _item_w) / 2;
+      _players[0].item_roi  = cv::Point(paddingw, paddingh);
+      _players[1].item_roi  = cv::Point(_gui_w/2, paddingh);
+      _players[2].item_roi  = cv::Point(paddingw, _gui_h/2);
+      if (_nplayers == 4)
+        _players[3].item_roi  = cv::Point(_gui_w/2, _gui_h/2);
     }
     _gui_bg.create(_gui_h, _gui_w);
     _gui_bg.setTo(cv::Vec3b(0,0,0));
@@ -253,7 +256,7 @@ protected:
       if (p->joypad_status != JOYPAD_OK)
         paste_img(_joypad_status_imgs[(int) p->joypad_status], _gui_final, tlx, tly);
       // draw robot status
-      if (p->robot_status != ROBOT_OK)
+      else if (p->robot_status != ROBOT_OK)
         paste_img(_robot_status_imgs[p->robot_status ], _gui_final, tlx, tly);
     } // end for player_idx
     return checkok;
@@ -269,6 +272,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool refresh_waiting() {
+    _gui_bg.copyTo(_gui_final);
     bool checkok = check_draw_joypads_robots();
     // check state changes
     if (checkok) { // start countdown
@@ -276,7 +280,6 @@ protected:
       play_sound("begin-race.mp3");
       _game_status = GAME_STATUS_COUNTDOWN;
       _lakitu_status = LAKITU_LIGHT0;
-      _gui_bg.copyTo(_gui_final);
       _countdown.reset();
     }
     imshow();
@@ -336,13 +339,6 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool refresh_race() {
-    if (!check_draw_joypads_robots()) {
-      imshow();
-      char c = cv::waitKey(50);
-      if (c == 27)
-        ros::shutdown();
-      return false;
-    }
     // check state changes
     if (_race_timer.getTimeSeconds() > _race_duration)
       finish_race();
@@ -350,6 +346,15 @@ protected:
              && !_last_lap_played) {
       _last_lap_played = true;
       play_sound("last-lap.mp3");
+    }
+
+    // check joypads
+    if (!check_draw_joypads_robots()) {
+      imshow();
+      char c = cv::waitKey(50);
+      if (c == 27)
+        ros::shutdown();
+      return false;
     }
 
     // check items
@@ -543,11 +548,20 @@ protected:
     DEBUG_PRINT("item_button_cb(%i, %i)", player_idx, skip_repetition_check);
     if (player_idx >= _nplayers) // sanity check
       return false;
-    unsigned target_player_idx = (player_idx == 0 ? 1 : 0);
-    Player* p = &(_players[player_idx]), *target = &(_players[target_player_idx]);
     // check what to do if Item_button
+    Player* p = &(_players[player_idx]);
     if (!skip_repetition_check && p->item_button_before)
       return false;
+    // cleverly find target_player_idx
+    unsigned int target_player_idx = (player_idx + 1) % _nplayers; // safe value
+    std::vector<unsigned int> possible_targets;
+    for (unsigned int i = 0; i < _nplayers; ++i) {
+      if (i != player_idx && _players[i].curse != CURSE_STAR)
+        possible_targets.push_back(i);
+    }
+    if (!possible_targets.empty())
+      target_player_idx = possible_targets[rand() % possible_targets.size()];
+    Player*target = &(_players[target_player_idx]);
     Item pi = p->item;
     Curse pc = p->curse;
     Item targeti = target->item;

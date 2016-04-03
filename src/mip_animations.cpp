@@ -27,14 +27,15 @@ Useful for rosmariokart.
  */
 #include <std_msgs/String.h>
 #include <std_msgs/Int16.h>
-#include <geometry_msgs/Twist.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Float32.h>
 #include <std_msgs/UInt8MultiArray.h>
+#include <geometry_msgs/Twist.h>
 #include <ros/ros.h>
 #include <boost/assign/std/vector.hpp>
 using namespace boost::assign; // https://stackoverflow.com/questions/2236197/what-is-the-easiest-way-to-initialize-a-stdvector-with-hardcoded-elements
 
-ros::Publisher sound_pub, sharp_turn_pub, cmd_vel_pub,
+ros::Publisher sound_pub, cmd_vel_pub, sharp_turn_pub,
 chest_led_pub, chest_led_blink_pub, head_led_pub;
 std_msgs::Int16 sound;
 std_msgs::Float32MultiArray sharp_turn;
@@ -71,10 +72,18 @@ inline void play_sound(int idx) {
   ros::spinOnce();
 }
 
-inline void spin(const double & angle, const int & speed) {
-  sharp_turn.data.clear();
-  sharp_turn.data += angle, speed;
-  sharp_turn_pub.publish(sharp_turn);
+inline void set_cmd_vel(const double v, const double w) {
+  geometry_msgs::Twist c;
+  c.linear.x = v;
+  c.angular.z = w;
+  cmd_vel_pub.publish(c);
+  ros::spinOnce();
+}
+
+inline void set_sharp_turn(const double angle) {
+  std_msgs::Float32 c;
+  c.data = angle;
+  sharp_turn_pub.publish(c);
   ros::spinOnce();
 }
 
@@ -84,11 +93,12 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
   if (anim == "hit") {
-    spin(2.7 * M_PI, 15);
-    minisleep();
     play_sound(7 + rand() % 3); // punch 1 -> 3
     minisleep();
     set_chest_led(255, 0, 0, 0.2, 0.2); // chest blink red
+    minisleep();
+    set_sharp_turn(M_PI / 2);
+    minisleep();
     for (unsigned int i = 0; i < 7; ++i) {
       set_head_led((i+1)%2, i%2, i%2,(i+1)%2); // center -> outside
       usleep(300 * 1000);
@@ -131,8 +141,8 @@ int main(int argc, char** argv) {
   ros::NodeHandle nh_public;
   ros::Subscriber sub = nh_public.subscribe("animation", 1, anim_cb);
   sound_pub = nh_public.advertise<std_msgs::Int16>("sound", 1);
-  sharp_turn_pub = nh_public.advertise<std_msgs::Float32MultiArray>("sharp_turn_speed", 1);
   cmd_vel_pub = nh_public.advertise<geometry_msgs::Twist>("cmd_vel", 1);
+  sharp_turn_pub = nh_public.advertise<std_msgs::Float32>("sharp_turn", 1);
   chest_led_pub = nh_public.advertise<std_msgs::UInt8MultiArray>("chest_led", 1);
   chest_led_blink_pub = nh_public.advertise<std_msgs::Float32MultiArray>("chest_led_blink", 1);
   head_led_pub = nh_public.advertise<std_msgs::UInt8MultiArray>("head_led", 1);

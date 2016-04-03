@@ -1,18 +1,19 @@
 ### parameters of the robot
-define mopi_robot position
+define sumo_robot position
 (
   size [0.500 0.400 0.250]
   block
   (
-    points 4
+    points 5
     point[0] [-0.25 -0.2]
     point[1] [0.25 -0.2]
     point[2] [0.25 0.2]
     point[3] [-0.25 0.2]
+    point[4] [-0.1 0]
     z [0 1]
   )
 
-  origin [-0.050 0.000 0.000 0.000]
+  origin [0.000 0.000 0.000 0.000]
   gui_nose 1
   drive "diff"
 
@@ -36,7 +37,6 @@ define floorplan model
   gui_outline 0
   gripper_return 0
   fiducial_return 0
-  # laser_return 1
 )
 
 # set the resolution of the underlying raytrace model in meters
@@ -56,20 +56,29 @@ window
 floorplan
 (
   name "floor"
-  bitmap "bitmaps/Mariocircuit1.png"
+  bitmap "bitmaps/Mariocircuit1_wider.png"
   size [15.000 15.000 0.500] # in meters
   pose [ 0.000 0.000 0.000 0.000 ]
 )
 
-# throw in a robot
-mopi_robot(
-    pose [ 5.9 -1.800 0.000 90.000 ]
+# throw in the robots
+sumo_robot(
+    pose [ 5.90 -1.800 0.000 90.000 ]
     name "sumo1"
-    color "yellow"
+    color "red"
 )
-# throw in a robot
-mopi_robot(
+sumo_robot(
     pose [ 6.50 -1.800 0.000 90.000 ]
     name "sumo2"
+    color "green"
+)
+sumo_robot(
+    pose [ 5.90 -2.500 0.000 90.000 ]
+    name "sumo3"
+    color "blue"
+)
+sumo_robot(
+    pose [ 6.50 -2.500 0.000 90.000 ]
+    name "sumo4"
     color "white"
 )
