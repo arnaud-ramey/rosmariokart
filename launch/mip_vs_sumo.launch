@@ -4,8 +4,8 @@
 <!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" required="true" >
-  <param name="gui_w" value="1200"/>
-  <param name="gui_h" value="600"/>
+  <param name="gui_w" value="1050"/>
+  <param name="gui_h" value="550"/>
   <param name="axis_linear" value="3"/>
   <param name="axis_angular" value="0"/>
   <param name="axis_90turn" value="4"/>

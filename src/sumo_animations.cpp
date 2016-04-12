@@ -46,9 +46,11 @@ inline void spin(const int & speed, const double & time) {
   geometry_msgs::Twist c;
   c.angular.z = speed;
   ros::Time now = ros::Time::now();
+  ros::Rate rate(50);
   while ((ros::Time::now() - now).toSec() < time) {
     cmd_vel_pub.publish(c);
     ros::spinOnce();
+    rate.sleep();
   }
 }
 

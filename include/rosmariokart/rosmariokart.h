@@ -83,7 +83,7 @@ inline bool is_real_item(Item i) {
 ////////////////////////////////////////////////////////////////////////////////
 
 inline Item random_item() {
-  //return ITEM_LIGHTNING; // debug test
+  //return ITEM_MUSHROOM; // debug test
   Item i = (Item) (rand() % NITEMS);
   return (is_real_item(i) ? i : random_item());
 }

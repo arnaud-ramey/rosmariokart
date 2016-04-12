@@ -79,33 +79,49 @@ inline void set_cmd_vel(const double v, const double w) {
   ros::spinOnce();
 }
 
-inline void set_sharp_turn(const double angle, const double speed) {
-  sharp_turn.data.clear();
-  sharp_turn.data += angle, speed;
-  sharp_turn_pub.publish(sharp_turn);
-  ros::spinOnce();
-}
-
 inline void minisleep() { ros::Duration(.2).sleep(); }
 
 void anim_cb(const std_msgs::StringConstPtr & msg) {
   std::string anim = msg->data;
   ROS_WARN("anim_cb('%s')", anim.c_str());
   if (anim == "hit") {
-    set_sharp_turn(M_PI * 3, 15);
-    minisleep();
     play_sound(7 + rand() % 3); // punch 1 -> 3
     minisleep();
     set_chest_led(255, 0, 0, 0.2, 0.2); // chest blink red
     minisleep();
-    for (unsigned int i = 0; i < 7; ++i) {
-      set_head_led((i+1)%2, i%2, i%2,(i+1)%2); // center -> outside
-      usleep(300 * 1000);
+    ros::Rate rate(50); // 20 ms
+    int speed = (rand() % 2 ? -10 : 10);
+    for (int i = 0; i < 100; ++i) {
+      if (i % 15 == 0)
+        set_head_led((i+1)%2, i%2, i%2,(i+1)%2); // center -> outside
+      set_cmd_vel(0, speed);
+      rate.sleep();
     }
+    minisleep();
+    switch (rand()%12) {
+      case 0: play_sound(4); break; // gnagnagna
+      case 1: play_sound(14); break; // hey
+      case 2: play_sound(15); break; // oooo
+      case 3: play_sound(27); break; // oooo
+      case 4: play_sound(37); break; // aie
+      case 5: play_sound(54); break; // woo?
+      case 6: play_sound(58); break; // woo 2
+      case 7: play_sound(59); break; // woo 3
+      case 8: play_sound(62); break; // woo 4
+      case 9: play_sound(74); break; // oooooooooooooooo
+      case 10: play_sound(78); break; // aaaa
+      case 11: play_sound(97); break; // me tooo
+      default: break;
+    }
+    minisleep();
     set_default_chest_led();
     minisleep();
     set_default_head_led();
   } // end "hit"
+
+  else if (anim == "letsgo")
+    play_sound(29); // let's go
+
 
   else if (anim == "lose") {
     play_sound(15); // ooooh!
@@ -122,7 +138,25 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
 
   else if (anim == "mock"
            || anim == "win") {
-    play_sound(16); // oh yeah
+    switch (rand()%16) {
+      case 0: play_sound(16); break; // oh yeah
+      case 1: play_sound(26); break; // yeah
+      case 2: play_sound(28); break; // laugh
+      case 3: play_sound(35); break; // you lose
+      case 4: play_sound(39); break; // sing
+      case 5: play_sound(40); break; // sing 2
+      case 6: play_sound(41); break; // laugh 2
+      case 7: play_sound(45); break; // make fun
+      case 8: play_sound(47); break; // music 1
+      case 9: play_sound(48); break; // music 2
+      case 10: play_sound(52); break; // laugh 3
+      case 11: play_sound(56); break; // oh yeah 2
+      case 12: play_sound(65); break; // make fun 2
+      case 13: play_sound(73); break; // sing 3
+      case 14: play_sound(80); break; // yeah
+      case 15: play_sound(91); break; // laugh 4
+      default: break;
+    }
     minisleep();
     set_chest_led(0, 255, 0, 0.2, 0.2); // chest blink green
     for (unsigned int i = 0; i < 7; ++i) {
@@ -136,6 +170,7 @@ void anim_cb(const std_msgs::StringConstPtr & msg) {
 } // end anim_cb();
 
 int main(int argc, char** argv) {
+  srand(time(NULL));
   ros::init(argc, argv, "mip_animations");
   ros::NodeHandle nh_public;
   ros::Subscriber sub = nh_public.subscribe("animation", 1, anim_cb);

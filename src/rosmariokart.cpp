@@ -24,23 +24,27 @@ ________________________________________________________________________________
 
 \section Parameters
  */
-// third parties
 #include "rosmariokart/rosmariokart.h"
+// third parties
+#include <SDL_mixer.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/Joy.h>
 #include <ros/package.h>
 
-class Rosmariokart {
+class Game {
 public:
-  Rosmariokart() : _nh_private("~") {
+  Game() : _nh_private("~") {
+  }
+
+  bool init() {
     // gui params
     _nh_private.param("gui_w", _gui_w, 800);
     _nh_private.param("gui_h", _gui_h, 600);
     _nh_private.param("min_time_roulette", _min_time_roulette, 10.);
     _nh_private.param("timebomb_likelihood", _timebomb_likelihood, 0.03); // 3%
-    _nh_private.param("race_duration", _race_duration, 80.); // seconds = 1 min 20
+    _nh_private.param("race_duration", _race_duration, 79.); // seconds = 1 min 19
     // item params
     _curse_timeout.resize(NCURSES, 10);
     _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 3.);
@@ -64,8 +68,9 @@ public:
     Player p1, p2, p3, p4;
     _nh_private.param("player1_name", p1.name, std::string("player1"));
     _players.push_back(p1);
-    _nh_private.param("player2_name", p2.name, std::string("player2"));
-    _players.push_back(p2);
+    _nh_private.param("player2_name", p2.name, std::string(""));
+    if (p2.name.length() > 0)
+      _players.push_back(p2);
     _nh_private.param("player3_name", p3.name, std::string(""));
     if (p3.name.length() > 0)
       _players.push_back(p3);
@@ -82,21 +87,41 @@ public:
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
       p->joy_sub = _nh_public.subscribe<sensor_msgs::Joy>
-          (p->name + "/joy", 1, boost::bind(&Rosmariokart::joy_cb, this, _1, i));
+                   (p->name + "/joy", 1, boost::bind(&Game::joy_cb, this, _1, i));
       // create publishers
       p->cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
-          (p->name + "/cmd_vel", 1);
+                        (p->name + "/cmd_vel", 1);
       p->animation_pub  = _nh_public.advertise<std_msgs::String>
-          (p->name + "/animation", 1);
+                          (p->name + "/animation", 1);
       p->sharp_turn_pub = _nh_public.advertise<std_msgs::Float32>
-          (p->name + "/sharp_turn", 1);
+                          (p->name + "/sharp_turn", 1);
     }
 
     // alloc data
     _data_path = ros::package::getPath("rosmariokart") + std::string("/data/");
     _sound_path =  _data_path + std::string("sounds/");
+    //Initialize SDL_mixer
+    if( Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 ) {
+      printf( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+      return false;
+    }
+    // load music and sounds
+    // WAVE, MOD, MIDI, OGG, MP3, FLAC
+    // sox cocoa_river.ogg -r 22050 cocoa_river.wav
+    if( !(_music = Mix_LoadMUS( (_sound_path + "battle-mode.mp3").c_str() )) ) {
+      printf( "Failed to load music! SDL_mixer Error: %s\n", Mix_GetError() );
+      return false;
+    }
+    Mix_VolumeMusic(128);
+
     // configure GUI
-    if (_nplayers == 2) {
+    if (_nplayers == 1) {
+      _item_w = std::min(_gui_w, _gui_h);
+      int paddingw = (_gui_w - _item_w) / 2;
+      int paddingh = (_gui_h - _item_w) / 2;
+      _players[0].item_roi  = cv::Point(paddingw, paddingh);
+    }
+    else if (_nplayers == 2) {
       _item_w = std::min(_gui_w / 2, _gui_h);
       int paddingw = (_gui_w - 2 * _item_w) / 2;
       int paddingh = (_gui_h - _item_w) / 2;
@@ -137,54 +162,70 @@ public:
 
     // load Items
     _item_imgs.resize(NITEMS, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_item_imgs, ITEM_BOO, _data_path + "items/Boo.png", _item_w);
-    imread_vector(_item_imgs, ITEM_GOLDENMUSHROOM, _data_path + "items/GoldenMushroom.png", _item_w);
-    imread_vector(_item_imgs, ITEM_LIGHTNING, _data_path + "items/Lightning.png", _item_w);
-    imread_vector(_item_imgs, ITEM_MIRROR, _data_path + "items/Mirror.png", _item_w);
-    imread_vector(_item_imgs, ITEM_MUSHROOM, _data_path + "items/Mushroom.png", _item_w);
-    imread_vector(_item_imgs, ITEM_REDSHELL, _data_path + "items/RedShell.png", _item_w);
-    imread_vector(_item_imgs, ITEM_REDSHELL2, _data_path + "items/RedShell2.png", _item_w);
-    imread_vector(_item_imgs, ITEM_REDSHELL3, _data_path + "items/RedShell3.png", _item_w);
-    imread_vector(_item_imgs, ITEM_STAR, _data_path + "items/Star.png", _item_w);
+    bool ok = true;
+    ok = ok && imread_vector(_item_imgs, ITEM_BOO, _data_path + "items/Boo.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_GOLDENMUSHROOM, _data_path + "items/GoldenMushroom.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_LIGHTNING, _data_path + "items/Lightning.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_MIRROR, _data_path + "items/Mirror.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_MUSHROOM, _data_path + "items/Mushroom.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_REDSHELL, _data_path + "items/RedShell.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_REDSHELL2, _data_path + "items/RedShell2.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_REDSHELL3, _data_path + "items/RedShell3.png", _item_w);
+    ok = ok && imread_vector(_item_imgs, ITEM_STAR, _data_path + "items/Star.png", _item_w);
     // load curses
     _curse_imgs.resize(NCURSES, cv::Mat3b(_item_w, _item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_curse_imgs, CURSE_BOO, _data_path + "items/BooCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_DUD_START, _data_path + "items/DudStartCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, _data_path + "items/GoldenMushroomCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_LIGHTNING, _data_path + "items/LightningCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_MIRROR, _data_path + "items/MirrorCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_MUSHROOM, _data_path + "items/MushroomCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_REDSHELL_HIT, _data_path + "items/RedShellCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_REDSHELL_COMING, _data_path + "items/RedShellComing.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_ROCKET_START, _data_path + "items/RocketStartCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_STAR, _data_path + "items/StarCurse.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_TIMEBOMB_COUNTDOWN, _data_path + "items/TimeBombCountdown.png", _item_w);
-    imread_vector(_curse_imgs, CURSE_TIMEBOMB_HIT, _data_path + "items/TimeBombCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_BOO, _data_path + "items/BooCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_DUD_START, _data_path + "items/DudStartCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_GOLDENMUSHROOM, _data_path + "items/GoldenMushroomCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_LIGHTNING, _data_path + "items/LightningCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_MIRROR, _data_path + "items/MirrorCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_MUSHROOM, _data_path + "items/MushroomCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_REDSHELL_HIT, _data_path + "items/RedShellCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_REDSHELL_COMING, _data_path + "items/RedShellComing.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_ROCKET_START, _data_path + "items/RocketStartCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_STAR, _data_path + "items/StarCurse.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_TIMEBOMB_COUNTDOWN, _data_path + "items/TimeBombCountdown.png", _item_w);
+    ok = ok && imread_vector(_curse_imgs, CURSE_TIMEBOMB_HIT, _data_path + "items/TimeBombCurse.png", _item_w);
     // load joypad statues
     _joypad_status_imgs.resize(NJOYPAD_STATUSES, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_joypad_status_imgs, JOYPAD_OK, _data_path + "warnings/joypadOK.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_BAD_AXES_NB, _data_path + "warnings/joypadError.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_BAD_BUTTONS_NB, _data_path + "warnings/joypadError.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_NEVER_RECEIVED, _data_path + "warnings/joypadWarning.png", _item_w);
-    imread_vector(_joypad_status_imgs, JOYPAD_TIMEOUT, _data_path + "warnings/joypadWarning.png", _item_w);
+    ok = ok && imread_vector(_joypad_status_imgs, JOYPAD_OK, _data_path + "warnings/joypadOK.png", _item_w);
+    ok = ok && imread_vector(_joypad_status_imgs, JOYPAD_BAD_AXES_NB, _data_path + "warnings/joypadError.png", _item_w);
+    ok = ok && imread_vector(_joypad_status_imgs, JOYPAD_BAD_BUTTONS_NB, _data_path + "warnings/joypadError.png", _item_w);
+    ok = ok && imread_vector(_joypad_status_imgs, JOYPAD_NEVER_RECEIVED, _data_path + "warnings/joypadWarning.png", _item_w);
+    ok = ok && imread_vector(_joypad_status_imgs, JOYPAD_TIMEOUT, _data_path + "warnings/joypadWarning.png", _item_w);
     // load robot statuses
     _robot_status_imgs.resize(NROBOT_STATUSES, cv::Mat3b(_item_w,_item_w, cv::Vec3b(0, 0, 255)));
-    imread_vector(_robot_status_imgs, ROBOT_OK, _data_path + "warnings/robotOK.png", _item_w);
-    imread_vector(_robot_status_imgs, ROBOT_NEVER_RECEIVED, _data_path + "warnings/robotWarning.png", _item_w);
-    imread_vector(_robot_status_imgs, ROBOT_TIMEOUT, _data_path + "warnings/robotWarning.png", _item_w);
+    ok = ok && imread_vector(_robot_status_imgs, ROBOT_OK, _data_path + "warnings/robotOK.png", _item_w);
+    ok = ok && imread_vector(_robot_status_imgs, ROBOT_NEVER_RECEIVED, _data_path + "warnings/robotWarning.png", _item_w);
+    ok = ok && imread_vector(_robot_status_imgs, ROBOT_TIMEOUT, _data_path + "warnings/robotWarning.png", _item_w);
     // load lakitu statuses
     int lw = std::min(_gui_w, _gui_h);
     _lakitu_roi.width = _lakitu_roi.height = lw;
     _lakitu_roi.x = (_gui_w - lw) / 2;
     _lakitu_roi.y = (_gui_h - lw) / 2;
     _lakitu_status_imgs.resize(NLAKITU_STATUSES, cv::Mat3b(lw,lw, cv::Vec3b(0, 0, 255)));
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT0, _data_path + "lakitu/0.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT1, _data_path + "lakitu/1.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT2, _data_path + "lakitu/2.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_LIGHT3, _data_path + "lakitu/3.png", lw);
-    imread_vector(_lakitu_status_imgs, LAKITU_RACE_OVER, _data_path + "lakitu/finish.png", lw);
+    ok = ok && imread_vector(_lakitu_status_imgs, LAKITU_LIGHT0, _data_path + "lakitu/0.png", lw);
+    ok = ok && imread_vector(_lakitu_status_imgs, LAKITU_LIGHT1, _data_path + "lakitu/1.png", lw);
+    ok = ok && imread_vector(_lakitu_status_imgs, LAKITU_LIGHT2, _data_path + "lakitu/2.png", lw);
+    ok = ok && imread_vector(_lakitu_status_imgs, LAKITU_LIGHT3, _data_path + "lakitu/3.png", lw);
+    ok = ok && imread_vector(_lakitu_status_imgs, LAKITU_RACE_OVER, _data_path + "lakitu/finish.png", lw);
+    if (!ok)
+      return false;
+    return restart_race();
+  }
 
-    restart_race();
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool clean() {
+    // clean chunks
+    for(std::map<std::string, Mix_Chunk*>::iterator it = _chunks.begin(); it != _chunks.end(); ++it) {
+      if (it->second)
+        Mix_FreeChunk(it->second);
+    }
+    _chunks.clear();
+    if (_music)
+      Mix_FreeMusic( _music );
+    return true;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -201,8 +242,8 @@ public:
 
   bool finish_race() {
     DEBUG_PRINT("Status: GAME_STATUS_RACE_OVER;");
-    bool ok = (system("killall play") == 0);
-    ok = ok && play_sound("you-win.mp3");
+    Mix_HaltMusic();
+    bool ok = play_sound("you-win.wav");
     _countdown.reset();
     _game_status = GAME_STATUS_RACE_OVER;
     _lakitu_status = LAKITU_RACE_OVER;
@@ -277,7 +318,7 @@ protected:
     // check state changes
     if (checkok) { // start countdown
       DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN");
-      play_sound("begin-race.mp3");
+      play_sound("begin-race.wav");
       _game_status = GAME_STATUS_COUNTDOWN;
       _lakitu_status = LAKITU_LIGHT0;
       _countdown.reset();
@@ -300,7 +341,7 @@ protected:
       _race_timer.reset();
       _lakitu_status = LAKITU_LIGHT3;
       _game_status = GAME_STATUS_RACE;
-      play_sound("battle-mode.mp3");
+      Mix_PlayMusic( _music, -1 );
       // play a mushroom sound if needed
       bool play_dud = false, play_rocket = false;
       for (unsigned int i = 0; i < _nplayers; ++i) {
@@ -345,7 +386,7 @@ protected:
     else if (_race_timer.getTimeSeconds() > _race_duration - 10
              && !_last_lap_played) {
       _last_lap_played = true;
-      play_sound("last-lap.mp3");
+      play_sound("last-lap.wav");
     }
 
     // check joypads
@@ -486,11 +527,19 @@ protected:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  bool play_sound(const std::string & filename) const {
-    std::ostringstream cmd;
-    //cmd << "aplay --quiet " << _sound_path << filename << " &";
-    cmd << "play --no-show-progress " << _sound_path << filename << " &";
-    return (system(cmd.str().c_str()) == 0);
+  bool play_sound(const std::string & filename) {
+    std::map<std::string, Mix_Chunk*>::iterator it = _chunks.find(filename);
+    Mix_Chunk* chunk = it->second;
+    if (it == _chunks.end()) {
+      if (!(chunk = Mix_LoadWAV((_sound_path + filename).c_str()) )) {
+        ROS_WARN( "Failed to load music '%s'! SDL_mixer Error: %s",
+                  filename.c_str(), Mix_GetError() );
+        return false;
+      }
+      _chunks.insert(std::make_pair(filename, chunk));
+    }
+    Mix_PlayChannel( -1, chunk, 0 );
+    return true;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -835,6 +884,10 @@ protected:
   // ros stuff
   ros::NodeHandle _nh_public, _nh_private;
 
+  // sound stuff
+  std::map<std::string, Mix_Chunk*> _chunks;
+  Mix_Music *_music;
+
   // opencv stuff
   int _gui_w, _gui_h;
   cv::Rect _lakitu_roi;
@@ -846,7 +899,7 @@ protected:
   std::string _data_path, _sound_path;
   unsigned int _item_w; // pixels
   std::vector<double> _curse_timeout;
-}; // end class Rosmariokart
+}; // end class Game
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -854,14 +907,16 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "rosmariokart");
   srand(time(NULL));
   srand48(time(NULL));
-  Rosmariokart mariokart;
-  //ros::AsyncSpinner spinner(0);
-  //spinner.start();
+  Game game;
+  if (!game.init()) {
+    printf("game.init() failed!\n");
+    return false;
+  }
   ros::Rate rate(50);
   while (ros::ok()) {
-    mariokart.refresh();
+    game.refresh();
     ros::spinOnce();
     rate.sleep();
   } // end while (ros::ok())
-  return 0;
+  return (game.clean() ? 0 : -1);
 }
