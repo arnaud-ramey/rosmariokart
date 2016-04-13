@@ -1,11 +1,7 @@
 #ifndef ROSMARIOKART_H
 #define ROSMARIOKART_H
 
-#include <ros/ros.h>
-// c includes
-#include <stdio.h>
-#include "sdl_utils.h"
-#include <sys/time.h>
+#include <stdlib.h>
 
 enum GameStatus {
   GAME_STATUS_WAITING   = 0, // waiting for robots or joypads
@@ -81,15 +77,6 @@ inline Item random_item() {
   //return ITEM_MUSHROOM; // debug test
   Item i = (Item) (rand() % NITEMS);
   return (is_real_item(i) ? i : random_item());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-template<class _T>
-inline std::string cast2string(const _T in) {
-  std::ostringstream ans;
-  ans << in;
-  return ans.str();
 }
 
 #endif // ROSMARIOKART_H

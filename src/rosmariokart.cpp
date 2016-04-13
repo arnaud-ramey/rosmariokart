@@ -25,8 +25,9 @@ ________________________________________________________________________________
 \section Parameters
  */
 #include "rosmariokart/rosmariokart.h"
+#include "rosmariokart/sdl_utils.h"
 // third parties
-#include <SDL_mixer.h>
+#include <ros/ros.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
@@ -48,7 +49,7 @@ public:
     // item params
     _curse_timeout.resize(NCURSES, 10);
     _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 3.);
-    _nh_private.param("curse_dud_start_timeout", _curse_timeout[CURSE_DUD_START], 5.);
+    _nh_private.param("curse_dud_start_timeout", _curse_timeout[CURSE_DUD_START], 3.);
     _nh_private.param("curse_goldenmushroom_timeout", _curse_timeout[CURSE_GOLDENMUSHROOM], 3.);
     _nh_private.param("curse_lightning_timeout", _curse_timeout[CURSE_LIGHTNING], 5.);
     _nh_private.param("curse_mirror_timeout", _curse_timeout[CURSE_MIRROR], 5.);
@@ -360,7 +361,7 @@ public:
         || _game_status == GAME_STATUS_RACE_OVER) {
       for (unsigned int i = 0; i < _nplayers; ++i) {
         Player* p = &(_players[i]);
-        // draw joypad status
+        // do nothing if no joypad or robot
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
         ok = ok && _player_avatars[i].render(renderer, p->item_roi);
@@ -376,6 +377,9 @@ public:
       for (unsigned int i = 0; i < _nplayers; ++i) {
         Player* p = &(_players[i]);
         //ROS_WARN("Redraw player %i!", i);
+        // do nothing if no joypad or robot
+        if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
+          continue;
         if (p->curse != CURSE_NONE)
           ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->item_roi);
         else if (p->item == ITEM_ROULETTE)
@@ -416,7 +420,7 @@ protected:
       if (p->joypad_status != JOYPAD_OK)
         checkok = false;
       else if (p->last_joy_updated.getTimeSeconds() > .5) {
-        DEBUG_PRINT("Player %i: JOYPAD_TIMEOUT", player_idx);
+        ROS_WARN("Player %i: JOYPAD_TIMEOUT", player_idx);
         p->joypad_status = JOYPAD_TIMEOUT;
         checkok = false;
       }
@@ -424,7 +428,7 @@ protected:
       if (p->cmd_vel_pub.getNumSubscribers())
         p->robot_status = ROBOT_OK;
       else {
-        DEBUG_PRINT("Player %i: ROBOT_TIMEOUT", player_idx);
+        ROS_WARN("Player %i: ROBOT_TIMEOUT", player_idx);
         p->robot_status = ROBOT_TIMEOUT;
         checkok = false;
       }
@@ -464,6 +468,8 @@ protected:
       // play a mushroom sound if needed
       bool play_dud = false, play_rocket = false;
       for (unsigned int i = 0; i < _nplayers; ++i) {
+        if (_players[i].curse == CURSE_DUD_START) // refresh dud start
+          _players[i].receive_curse(CURSE_DUD_START, i);
         play_dud = play_dud || (_players[i].curse == CURSE_DUD_START);
         play_rocket = play_rocket || (_players[i].curse == CURSE_ROCKET_START);
       }
@@ -561,7 +567,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_race_over() {
-    bool checkok = check_joypads_robots();
+    check_joypads_robots();
     int x = _lakitu_center.x, y = _lakitu_center.y;
     double time = _countdown.getTimeSeconds();
     if (time <= 3) { // get lakitu down
@@ -575,7 +581,7 @@ protected:
     }
 
     _lakitu.set_position(Point2d(x, y));
-    return checkok;
+    return true;
   } // end update_race_over()
 
   //////////////////////////////////////////////////////////////////////////////
