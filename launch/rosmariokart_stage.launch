@@ -55,11 +55,11 @@
   <param name="axis_180turn" value="5"/>
   <param name="button_item" value="3"/>
 <!--
-  <param name="gui_w" value="300"/>
-  <param name="gui_h" value="150"/>
+  <param name="winw" value="300"/>
+  <param name="winh" value="150"/>
 -->
-  <param name="gui_w" value="400"/>
-  <param name="gui_h" value="200"/>
+  <param name="winw" value="400"/>
+  <param name="winh" value="200"/>
   <param name="race_duration" value="15"/>
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>

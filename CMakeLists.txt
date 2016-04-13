@@ -3,12 +3,11 @@ cmake_minimum_required(VERSION 2.8.3)
 ### 2- Package Name
 project(rosmariokart)
 # Debug, Release, RelWithDebInfo and MinSizeRe
-set(CMAKE_BUILD_TYPE RelWithDebInfo)
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra") # add extra warnings
 ### 3 - Find other CMake/Catkin packages needed for build
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake) # add "cmake" folder for "FindSDL2.cmake"
 find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge image_transport)
-find_package( OpenCV REQUIRED )
 find_package(SDL2 REQUIRED)
 ### 4 - Message/Service/Action Generators (add_message_files(), add_service_files(), add_action_files())
 # nothing to do
