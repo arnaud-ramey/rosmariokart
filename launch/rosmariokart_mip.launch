@@ -1,7 +1,7 @@
 <launch>
 <group ns="mip">
-  <param name="scale_linear" value=".5"/>
-  <param name="scale_angular" value="1.5"/>
+  <param name="scale_linear" value=".6"/>
+  <param name="scale_angular" value="1.8"/>
   <!-- Driver for first joystick. -->
   <node pkg="joy" type="joy_node" name="joy1" output="screen" >
     <param name="dev" value="/dev/input/js1" />

@@ -58,13 +58,13 @@
   <param name="gui_w" value="300"/>
   <param name="gui_h" value="150"/>
 -->
-  <param name="gui_w" value="400"/>
+  <param name="gui_w" value="200"/>
   <param name="gui_h" value="200"/>
-  <param name="race_duration" value="15"/>
+  <param name="race_duration" value="80"/>
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>
-<!--
   <param name="player3_name" value="robot_2"/>
+<!--
   <param name="player4_name" value="robot_3"/>
 -->
 </node>
