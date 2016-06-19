@@ -1,5 +1,7 @@
 # *rosmariokart*
 
+[![Build Status](https://travis-ci.org/arnaud-ramey/rosmariokart.svg)](https://travis-ci.org/arnaud-ramey/rosmariokart)
+
 A "mariokart" clone, but made for real robots.
 <p align="center">
 <img src="doc/logo.png" alt="sumo" style="width: 300px"/>
