@@ -1,28 +1,17 @@
 <launch>
 <arg name="p1" value="mip"/>
-<arg name="p2" value="sumo"/>
-<!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" required="true" >
-<<<<<<< HEAD
-  <param name="gui_w" value="1200"/>
-  <param name="gui_h" value="768"/>
-<!--
-=======
-  <param name="winw" value="1050"/>
-  <param name="winh" value="550"/>
->>>>>>> 2a869d0158ca88843c7b475091978a519fb16a4d
+  <param name="winw" value="300"/>
+  <param name="winh" value="300"/>
+  <param name="race_duration" value="15"/>
   <param name="axis_linear" value="3"/>
--->
-  <param name="axis_linear" value="1"/>
   <param name="axis_angular" value="0"/>
   <param name="axis_90turn" value="4"/>
   <param name="axis_180turn" value="5"/>
   <param name="button_item" value="3"/>
   <param name="player1_name" value="$(arg p1)"/>
-  <param name="player2_name" value="$(arg p2)"/>
 </node>
 
 <include file="$(find rosmariokart)/launch/rosmariokart_$(arg p1).launch"/>
-<include file="$(find rosmariokart)/launch/rosmariokart_$(arg p2).launch"/>
 </launch>

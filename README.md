@@ -98,6 +98,12 @@ Publications
 Credits
 =======
 
+Fonts
+----
+
+  - `fonts/LCD2U___.TTF`:
+    [myfontfree.com](http://www.myfontfree.com/lcd2-myfontfreecom55f70418.htm)
+
 Images
 ------
 
