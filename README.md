@@ -11,7 +11,17 @@ A "mariokart" clone, but made for real robots.
 ROS driver node
 ===============
 
-To launch the game:
+## 1. Dependencies included in the Ubuntu packages
+
+Please run the [rosdep](http://docs.ros.org/independent/api/rosdep/html/) utility:
+
+```bash
+$ sudo apt-get install python-rosdep
+$ sudo rosdep init
+$ rosdep install rosmariokart --ignore-src
+```
+
+## 2. To launch the game:
 
 ```bash
 $ roslaunch rosmariokart rosmariokart.launch
