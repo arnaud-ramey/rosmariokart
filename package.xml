@@ -14,6 +14,7 @@
   <depend>cv_bridge</depend>
   <depend>image_transport</depend>
   <depend>sdl2</depend>
+  <depend>sdl2-ttf</depend>
   <export>
     <rosdoc config="rosdoc.yaml" /> <!-- http://wiki.ros.org/rosdoc_lite -->
   </export>

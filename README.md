@@ -16,6 +16,7 @@ ROS driver node
 Please run the [rosdep](http://docs.ros.org/independent/api/rosdep/html/) utility:
 
 ```bash
+$ sudo apt-get install libsdl2-gfx-dev libsdl2-image-dev libsdl2-mixer-dev 
 $ sudo apt-get install python-rosdep
 $ sudo rosdep init
 $ rosdep install rosmariokart --ignore-src
