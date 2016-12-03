@@ -647,12 +647,15 @@ public:
     return alpha;
   }
 
+  //Image dimensions
+  int _width, _height;
+
 private:
   //The actual hardware texture
   SDL_Texture* _sdltex;
   SDL_Surface* _sdlsurface;
   //Image dimensions
-  int _width, _height;
+ // int _width, _height;
   double _resize_scale;
 }; // end Texture
 

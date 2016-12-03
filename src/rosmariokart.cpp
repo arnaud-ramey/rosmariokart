@@ -36,7 +36,6 @@ ________________________________________________________________________________
 #include <sensor_msgs/Joy.h>
 #include <sensor_msgs/Image.h>
 #include <image_transport/image_transport.h>
-#include <opencv2/highgui/highgui.hpp>  // To be confirmed Eric
 #include <cv_bridge/cv_bridge.h>
 #include <ros/package.h>
 
@@ -96,9 +95,7 @@ public:
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
       p->joy_sub = _nh_public.subscribe<sensor_msgs::Joy>(p->name + "/joy", 1, boost::bind(&Game::joy_cb, this, _1, i));
-     // p-> = _it.subscribe(p->name + "/camera/image_raw", 1, boost::bind(&Game::cam_cb, this, _1, i));
-
-      p->it_cam_sub = _it.subscribe(p->name + "/image", 1, boost::bind(&Game::cam_cb, this, _1, i));
+      p->rgb_sub = _it.subscribe(p->name + "/image", 1, boost::bind(&Game::rgb_cb, this, _1, i));
 
       // create publishers
       p->cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
@@ -168,38 +165,66 @@ public:
     _last_renderer_countdown_time = -1;
 
     // configure GUI
+    // Nota: item_tl_corner are updated later in rgb_cb()
+    // depending of the size of the video image.
+
+    _item_w = std::min(_winw/4, _winh/4);
+
+
     if (_nplayers == 1) {
+        player_w =_winw;
+        player_h = _winh;
+      _players[0].item_tl_corner = Point2d(0, _winw - _item_w);
+      _players[0].player_tl_win = Point2d(0, 0);
 
-      _item_w = std::min(_winw/3, _winh/3);
-
-      _players[0].item_tl_corner  = Point2d(_winw - _item_w, 0);
-      _players[0].win_center = Point2d(0, 0);
     }
     else if (_nplayers == 2) {
      // Test if image have to be splitted in Right-Left or Up-Down
       int _screen_main_direction = std::max(_winw,_winh);
 
-      _item_w = std::min(_winw, _winh)/3;
+      if (_screen_main_direction == _winw){ //Split main screnn in Right_Left
 
-      if (_screen_main_direction == _winw){ //Split Right_Left
-           _players[0].item_tl_corner  = Point2d(_winw/2 - _item_w, 0);
-           _players[1].item_tl_corner  = Point2d(_winw - _item_w, _winh/2);
+          player_w =_winw/2;
+          player_h = _winh;
+
+          _players[0].item_tl_corner = Point2d(_winw/2 - _item_w, 0);
+          _players[0].player_tl_win = Point2d(0, 0);
+
+          _players[1].item_tl_corner = Point2d(_winw - _item_w,0);
+          _players[1].player_tl_win = Point2d(_winw/2, 0);
+
       }
-      else{
-          _players[0].item_tl_corner  = Point2d(_winw - _item_w, 0);
-          _players[1].item_tl_corner  = Point2d(_winw - _item_w, _winh/2);
+      else{ //Split main screnn in Up_Down
+          player_w =_winw;
+          player_h = _winh/2;
+
+          _players[0].item_tl_corner = Point2d(_winw - _item_w, 0);
+          _players[0].player_tl_win = Point2d(0, 0);
+
+          _players[1].item_tl_corner = Point2d(_winw - _item_w,_winh/2);
+          _players[1].player_tl_win = Point2d(0,_winh/2);
       }
 
     }
     else if (_nplayers == 3 || _nplayers == 4) {
-      _item_w = std::min(_winw / 3, _winh / 3);
-     // int paddingw = (_winw - 2 * _item_w) / 2;
-     // int paddingh = (_winh - 2 * _item_w) / 2;
-      _players[0].item_tl_corner  = Point2d(_winw/2 - _item_w, 0);;
-      _players[1].item_tl_corner  = Point2d(_winw - _item_w, 0);
-      _players[2].item_tl_corner  = Point2d(_winw/2 - _item_w, _winh/2);
+      _item_w = std::min(_winw / 6, _winh / 6);
+
+      player_w =_winw/2;
+      player_h = _winh/2;
+
+      _players[0].item_tl_corner = Point2d(_winw/2 - _item_w, 0);
+      _players[0].player_tl_win = Point2d(0, 0);
+
+      _players[1].item_tl_corner = Point2d(_winw - _item_w,0);
+      _players[1].player_tl_win = Point2d(_winw/2,0);
+
+      _players[2].item_tl_corner = Point2d(_winw/2 - _item_w, _winh/2);
+      _players[2].player_tl_win = Point2d(0,_winh/2);
+
       if (_nplayers == 4)
-        _players[3].item_tl_corner  = Point2d(_winw - _item_w, _winh/2);
+       _players[3].item_tl_corner = Point2d(_winw - _item_w,_winh/2);
+       _players[3].player_tl_win = Point2d(_winw/2,_winh/2);
+
     }
     // put robot background
 
@@ -214,7 +239,9 @@ public:
         imgname = "white_sumo_black_bg.png";
       std::string fullfilename = _data_path + std::string("robots/") + imgname;
 
-      p->_avatar.from_file(renderer, fullfilename, _item_w);
+      double avatar_w = std::min (player_w/2,player_h/2);
+
+      p->_avatar.from_file(renderer, fullfilename, avatar_w);
 
     } // end for i
 
@@ -360,7 +387,7 @@ public:
     }
   } // end update()
 
-  ////////////////////////////////////////////////////////////////////////////// ERIC Marque page
+  //////////////////////////////////////////////////////////////////////////////
 
   bool render() {
     DEBUG_PRINT("render()-%g s!\n", _race_timer.getTimeSeconds());
@@ -371,15 +398,19 @@ public:
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
 
-      // draw image camera if available (TODO Eric)
-      //ok = ok && _camera[i].render(renderer, p->win_center);  // TODO - encapsuler l'affichage fromrawdata par exemple dans le sdl.utils...
+    // draw image camera if available
+    if (p->has_rgb()){
+    ok = ok && p->_rgb.render(renderer, p->player_tl_camview);}
+    else{
+    ok = ok && p->_avatar.render(renderer, p->player_tl_camview); //TODO
+    }
 
-      // draw joypad status
-      if (p->joypad_status != JOYPAD_OK)
-        ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_tl_corner);
-      // draw robot status
-      else if (p->robot_status != ROBOT_OK)
-        ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_tl_corner);
+    // draw joypad status
+    if (p->joypad_status != JOYPAD_OK)
+    ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_tl_corner);
+    // draw robot status
+    else if (p->robot_status != ROBOT_OK)
+    ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_tl_corner);
     } // end for i
 
     // render avatars
@@ -391,12 +422,6 @@ public:
         // do nothing if no joypad or robot
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
-
-        if (p->has_rgb())
-          ok = ok && p->_rgb.render(renderer, p->item_tl_corner);
-        else
-          ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
-
       } // end for i
     } // end GAME_STATUS_WAITING
 
@@ -419,12 +444,12 @@ public:
           ok = ok && _item_imgs[random_item()].render(renderer, p->item_tl_corner);
         else if (p->item != ITEM_NONE)
           ok = ok && _item_imgs[p->item].render(renderer, p->item_tl_corner);
-        else { // (CURSE_NONE && ITEM_NONE)
-          if (p->has_rgb())
-            ok = ok && p->_rgb.render(renderer, p->item_tl_corner);
-          else
-            ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
-        }
+//        else { // (CURSE_NONE && ITEM_NONE)
+//          if (p->has_rgb())
+//            ok = ok && p->_rgb.render(renderer, p->item_tl_corner);
+//          else
+//            ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
+//        }
       } // end for i
 
       if (_lakitu_status == LAKITU_LIGHT3) // show lakitu going upwards
@@ -432,7 +457,7 @@ public:
 
       int time = _race_duration + 1 - _race_timer.getTimeSeconds();
       ok = ok && render_countdown(time, 255, 0, 0)
-          && _countdown_texture.render_center(renderer, Point2d(_winw/2, 50),1);
+          && _countdown_texture.render_center(renderer, Point2d(_winw/2, 75),1);
     } // end GAME_STATUS_RACE
 
     if (_game_status == GAME_STATUS_RACE_OVER) {
@@ -877,60 +902,7 @@ protected:
   
   
   
-  ///////ADDED BY ERIC ///////////////////////////////////////////////////////////////////
-
-  //! \player_idx starts at 0
-  void cam_cb(const sensor_msgs::Image::ConstPtr& cam,
-              unsigned int player_idx) {
-  /*ROS_INFO("Image du joueur %i (%i x %i)  step:%i", player_idx, cam->width, cam->height, cam->step);*/
-  DEBUG_PRINT("cam_cb(%i)", player_idx);
- 
-    if (player_idx >= _nplayers) // sanity check
-      return;
-    Player* p = &(_players[player_idx]);
-  
-  // Test affichage donnée dans fenetre openCV
-    try
-     {
-      cv::imshow("view", cv_bridge::toCvShare(cam, "bgr8")->image);
-      cv::waitKey(30);
-     }
-     catch (cv_bridge::Exception& e)
-     {
-       ROS_ERROR("Could not convert from '%s' to 'bgr8'.", cam->encoding.c_str());
-     }
-//// Fin Test
-
-
-  // get cv_image data from ROS message using cv_bridge
-  cv_bridge::CvImagePtr cv_image_ptr = cv_bridge::toCvCopy(cam,"bgr8");
-
-  // Create surface from data image
-  SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(cv_image_ptr->image.data, cv_image_ptr->image.rows, cv_image_ptr->image.cols, 24,
-                                               cv_image_ptr->image.step, 0, 0, 0, 0);
-
-        if (surface == NULL) {
-		  SDL_Log("Creating surface failed: %s", SDL_GetError());
-		  exit(1);
-		}
-
-   // _camera[player_idx] = *SDL_CreateTextureFromSurface(renderer, surface);
-
-
-   SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-
-    if (texture == NULL) {
-        fprintf(stderr, "CreateTextureFromSurface failed: %s\n", SDL_GetError());
-        exit(1);
-    }
-
-    SDL_FreeSurface(surface);
-
-  
-  } // end cam_cb();
-
-
-  //////////////////////////////////////////////////////////////////////////////
+ //////////////////////////////////////////////////////////////////////////////
 
   //! \player_idx starts at 0
   void joy_cb(const sensor_msgs::Joy::ConstPtr& joy,
@@ -991,9 +963,37 @@ protected:
     if (player_idx >= _nplayers) // sanity check
       return;
     Player* p = &(_players[player_idx]);
-    if (!p->_rgb.from_ros_image(renderer, *rgb, _item_w)) {
+    if (!p->_rgb.from_ros_image(renderer, *rgb, player_w,player_h)) {
       ROS_WARN("Texture::from_ros_image() failed!");
     }
+
+    // int scale_ratio = 1/(p->_rgb.get_resize_scale()); <--- Unused
+
+    //update of the player player_tl_camview in order to center the video image
+    if (player_w == p->_rgb._width){ // Image has been scaled to max width
+
+         p->player_tl_camview.x = p->player_tl_win.x;
+
+         int paddingy = player_h - p->_rgb._height;
+         p->player_tl_camview.y = p->player_tl_win.y + paddingy/2;
+
+    }else{ // Image has been scaled to max height
+
+        p->player_tl_camview.y = p->player_tl_win.y;
+
+        int paddingx = player_w - p->_rgb._width;
+        p->player_tl_camview.x = p->player_tl_win.x + paddingx/2;
+       }
+
+    //Also update of the player item_tl_corner and its size to fit the image
+
+
+    p->item_tl_corner.x = p->player_tl_camview.x + p->_rgb._width -_item_w;
+    p->item_tl_corner.y = p->player_tl_camview.y;
+
+    // TODO: Try to update the _item_w size depending on the number of player and of the camview size
+    //          Difficulty: icon item are loaded until during the init() phase...
+
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1035,9 +1035,10 @@ protected:
     }
 
     std::string name;
-    Point2d item_tl_corner,win_center;
+    Point2d item_tl_corner,player_tl_win, player_tl_camview;
+
     ros::Subscriber joy_sub ;
-    image_transport::Subscriber it_cam_sub;  // Ajout Eric 
+    image_transport::Subscriber it_cam_sub, rgb_sub;  // Ajout Eric
 
     ros::Publisher cmd_vel_pub, sharp_turn_pub, animation_pub;
     Item item;
@@ -1092,6 +1093,7 @@ protected:
   // items
   std::string _data_path, _sound_path;
   int _item_w;  // pixels
+  int player_w, player_h; // size of player windows
   std::vector<double> _curse_timeout;
 
 }; // end class Game
@@ -1103,10 +1105,6 @@ int main(int argc, char** argv) {
   srand(time(NULL));
   srand48(time(NULL));
   Game game;
-  
-  //Eric TEST
-  cv::namedWindow("view");
-  cv::startWindowThread();
 
   if (!game.init()) {
     ROS_ERROR("game.init() failed!");
@@ -1129,6 +1127,6 @@ int main(int argc, char** argv) {
     ros::spinOnce();
     update_rate.sleep();
   } // end while (ros::ok())
-  cv::destroyWindow("view"); //Eric
+
   return (game.clean() ? 0 : -1);
 }
