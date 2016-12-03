@@ -33,6 +33,7 @@ ________________________________________________________________________________
 #include "timer.h"
 #include <sstream>
 #include <vector>
+#include <sensor_msgs/Image.h>
 
 // set to 1 to render bounding boxes and to display function calls in terminals
 // set to 0 otherwise
@@ -41,7 +42,8 @@ ________________________________________________________________________________
 #define DEBUG_PRINT(...)   {}
 #if DEBUG
 #undef  DEBUG_PRINT
-#define DEBUG_PRINT(...)   ROS_WARN(__VA_ARGS__)
+#include <ros/ros.h>
+#define DEBUG_PRINT(...)   printf(__VA_ARGS__)
 #endif
 
 #define RAD2DEG     57.2957795130823208768  //!< to convert radians to degrees
@@ -466,7 +468,67 @@ public:
       printf( "Unable to load image %s! SDL Error: %s\n", str.c_str(), SDL_GetError() );
       return false;
     }
+    return from_texture(renderer, goalwidth, goalheight, goalscale);
+  }// end from_file()
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool from_ros_image(SDL_Renderer* renderer, const sensor_msgs::Image & img,
+                      int goalwidth = -1, int goalheight = -1, double goalscale = -1) {
+    DEBUG_PRINT("Texture::from_ros_image(), goal:(%i, %i, %g)\n",
+                goalwidth, goalheight, goalscale);
+    free();
+    // Load image as SDL_Surface
+    const unsigned char* data = img.data.data();
+    int depth = 24; // the depth of the surface in bits
+    int pitch = img.step; // the length of a row of pixels in bytes
+    Uint32 Rmask = 0, Gmask = 0, Bmask = 0, Amask = 0;
+
+    /*if (img.encoding.empty()) { // empty encoding -> check if it could be BGR8
+      int datasize = img.data.size(), expdatasize = img.width * img.height * 3;
+      if (datasize != expdatasize) {
+        printf("from_ros_image(): empty encoding, size %ix%i, "
+               "expected %i bytes, got %i!\n", img.width, img.height,
+               expdatasize, datasize);
+        return false;
+      }
+    } else */
+
+    if (img.encoding == "bgr8") {
+      // http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
+      // https://wiki.libsdl.org/SDL_CreateRGBSurfaceFrom
+      depth = 24; // the depth of the surface in bits
+      Rmask = 0;//0x0000ff;
+      Gmask = 0;//0x00ff00;
+      Bmask = 0;//0xff0000;
+      Amask = 0;
+    } else if (img.encoding == "rgba8") {
+      depth = 32; // the depth of the surface in bits
+      Rmask = 0;// 0xff000000;
+      Gmask = 0;//0x00ff0000;
+      Bmask = 0;//0x0000ff00;
+      Amask = 0;//0x000000ff;
+    } else {
+      printf("from_ros_image(): encoding '%s' is not supported!\n",
+             img.encoding.c_str());
+      return false;
+    }
+
+    _sdlsurface = SDL_CreateRGBSurfaceFrom((void*) data, img.width, img.height,
+                                           depth, pitch,
+                                           Rmask, Gmask, Bmask, Amask);
+    if( _sdlsurface == NULL ) {
+      printf( "Unable to load texture from ROS image! SDL Error: %s\n",
+              SDL_GetError() );
+      return false;
+    }
+    return from_texture(renderer, goalwidth, goalheight, goalscale);
+  } // end from_ros_image()
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool from_texture(SDL_Renderer* renderer,
+                    int goalwidth = -1, int goalheight = -1, double goalscale = -1) {
     if (goalwidth <= 0 && goalheight <= 0 && goalscale <= 0)
       _resize_scale = 1;
     else {
@@ -483,14 +545,14 @@ public:
     // Convert it to a hardware-optimzed texture so we can render it
     _sdltex = SDL_CreateTextureFromSurface( renderer, _sdlsurface );
     if (_sdltex == NULL) {
-      printf("Could not load texture '%s':'%s'\n", str.c_str(), SDL_GetError());
+      printf("Could not convert surface -> texture :'%s'\n", SDL_GetError());
       return false;
     }
     //Get image dimensions
     _width = _sdlsurface->w;
     _height = _sdlsurface->h;
     return true;
-  }// end from_file()
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -14,7 +14,7 @@
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy1" output="screen" >
-    <param name="dev" value="/dev/input/js0" />
+    <param name="dev" value="/dev/input/js1" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -23,7 +23,7 @@
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy2" output="screen" >
-    <param name="dev" value="/dev/input/js1" />
+    <param name="dev" value="/dev/input/js2" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -54,25 +54,21 @@
    <param name="axis_90turn" value="4"/>
   <param name="axis_180turn" value="5"/>
   <param name="button_item" value="3"/>
-<!--
   <param name="winw" value="300"/>
   <param name="winh" value="150"/>
--->
-<<<<<<< HEAD
-  <param name="gui_w" value="200"/>
-  <param name="gui_h" value="200"/>
-  <param name="race_duration" value="80"/>
-=======
-  <param name="winw" value="400"/>
-  <param name="winh" value="200"/>
-  <param name="race_duration" value="15"/>
->>>>>>> 2a869d0158ca88843c7b475091978a519fb16a4d
+  <param name="race_duration" value="100"/>
+  <param name="min_time_roulette" value="100"/>
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>
-  <param name="player3_name" value="robot_2"/>
 <!--
+  <param name="player3_name" value="robot_2"/>
   <param name="player4_name" value="robot_3"/>
 -->
 </node>
+
+<node pkg="image_view" type="image_view" output="screen"
+      name="rgb_viewer" args="image:=/robot_0/image"/>
+<node pkg="vision_utils" type="depth_to_rgb_viewer.exe" output="screen"
+      name="depth_viewer" args=" _input_topic:=/robot_0/depth"/>
 
 </launch>

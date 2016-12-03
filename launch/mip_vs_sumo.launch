@@ -5,7 +5,10 @@
 <!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" required="true" >
+<<<<<<< HEAD
 
+=======
+>>>>>>> 6850f54221ac2e8d9dc7f9343061c77ba77b69a6
   <param name="winw" value="1050"/>
   <param name="winh" value="550"/>
   <param name="axis_linear" value="1"/>
