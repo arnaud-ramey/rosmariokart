@@ -96,7 +96,9 @@ public:
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
       p->joy_sub = _nh_public.subscribe<sensor_msgs::Joy>(p->name + "/joy", 1, boost::bind(&Game::joy_cb, this, _1, i));
-      p->it_cam_sub = _it.subscribe(p->name + "/camera/image_raw", 1, boost::bind(&Game::cam_cb, this, _1, i));
+     // p-> = _it.subscribe(p->name + "/camera/image_raw", 1, boost::bind(&Game::cam_cb, this, _1, i));
+
+      p->it_cam_sub = _it.subscribe(p->name + "/image", 1, boost::bind(&Game::cam_cb, this, _1, i));
 
       // create publishers
       p->cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
@@ -158,12 +160,12 @@ public:
     }
     Mix_VolumeMusic(128);
     //Open the time font
-    _time_font = TTF_OpenFont( (_data_path + "fonts/LCD2U___.TTF").c_str(), _winh / 4);
-    if( _time_font == NULL ) {
+    _countdown_font = TTF_OpenFont( (_data_path + "fonts/LCD2U___.TTF").c_str(), _winh / 4);
+    if( _countdown_font == NULL ) {
       printf( "Failed to load font! SDL_ttf Error: %s\n", TTF_GetError() );
       return false;
     }
-    _last_renderer_time = -1;
+    _last_renderer_countdown_time = -1;
 
     // configure GUI
     if (_nplayers == 1) {
@@ -389,7 +391,11 @@ public:
         // do nothing if no joypad or robot
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
-        ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
+
+        if (p->has_rgb())
+          ok = ok && p->_rgb.render(renderer, p->item_tl_corner);
+        else
+          ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
 
       } // end for i
     } // end GAME_STATUS_WAITING
@@ -413,18 +419,20 @@ public:
           ok = ok && _item_imgs[random_item()].render(renderer, p->item_tl_corner);
         else if (p->item != ITEM_NONE)
           ok = ok && _item_imgs[p->item].render(renderer, p->item_tl_corner);
-        else // (CURSE_NONE && ITEM_NONE)
-
-          ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
-
+        else { // (CURSE_NONE && ITEM_NONE)
+          if (p->has_rgb())
+            ok = ok && p->_rgb.render(renderer, p->item_tl_corner);
+          else
+            ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
+        }
       } // end for i
 
       if (_lakitu_status == LAKITU_LIGHT3) // show lakitu going upwards
         ok = ok && _lakitu.render(renderer);
 
       int time = _race_duration + 1 - _race_timer.getTimeSeconds();
-      ok = ok && render_time(time, 255, 0, 0)
-          && _time_texture.render_center(renderer, Point2d(_winw/2, 50),1);
+      ok = ok && render_countdown(time, 255, 0, 0)
+          && _countdown_texture.render_center(renderer, Point2d(_winw/2, 50),1);
     } // end GAME_STATUS_RACE
 
     if (_game_status == GAME_STATUS_RACE_OVER) {
@@ -633,12 +641,12 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   //! \return true if render OK or already done
-  bool render_time(const int time, int r, int g, int b) {
-    if (_last_renderer_time == time)
+  bool render_countdown(const int time, int r, int g, int b) {
+    if (_last_renderer_countdown_time == time)
       return true;
     std::ostringstream time_str; time_str << time;
-    _last_renderer_time = time;
-    return _time_texture.loadFromRenderedText(renderer, _time_font, time_str.str(),
+    _last_renderer_countdown_time = time;
+    return _countdown_texture.loadFromRenderedText(renderer, _countdown_font, time_str.str(),
                                               r, g, b);
   }
 
@@ -881,16 +889,16 @@ protected:
       return;
     Player* p = &(_players[player_idx]);
   
-//  // Test affichage donnée dans fenetre openCV
-//    try
-//     {
-//      cv::imshow("view", cv_bridge::toCvShare(cam, "bgr8")->image);
-//      cv::waitKey(30);
-//     }
-//     catch (cv_bridge::Exception& e)
-//     {
-//       ROS_ERROR("Could not convert from '%s' to 'bgr8'.", cam->encoding.c_str());
-//     }
+  // Test affichage donnée dans fenetre openCV
+    try
+     {
+      cv::imshow("view", cv_bridge::toCvShare(cam, "bgr8")->image);
+      cv::waitKey(30);
+     }
+     catch (cv_bridge::Exception& e)
+     {
+       ROS_ERROR("Could not convert from '%s' to 'bgr8'.", cam->encoding.c_str());
+     }
 //// Fin Test
 
 
@@ -983,8 +991,7 @@ protected:
     if (player_idx >= _nplayers) // sanity check
       return;
     Player* p = &(_players[player_idx]);
-    //if (!p->_rgb.from_ros_image(renderer, *rgb, _item_w)) {
-    if (!p->_avatar.from_ros_image(renderer, *rgb, _item_w)) {
+    if (!p->_rgb.from_ros_image(renderer, *rgb, _item_w)) {
       ROS_WARN("Texture::from_ros_image() failed!");
     }
   }
@@ -1002,6 +1009,10 @@ protected:
       scale_linear = scale_angular = 1;
       item_button_before = sharp_turn_before = false;
     }
+    bool has_rgb() const {
+      return !_rgb.empty();
+    }
+
     void receive_item(Item i) {
       item = i;
     }
@@ -1038,7 +1049,7 @@ protected:
     double scale_angular, scale_linear;
     Timer curse_timer, roulette_timer, last_joy_updated;
     unsigned int curse_caster_idx;
-    Texture _avatar, _camera;
+    Texture _avatar, _rgb;
 
   }; // end struct Player //////////////////////////////////////////////////////
 
@@ -1069,14 +1080,14 @@ protected:
   Entity _lakitu;
 
   // time display stuff
-  TTF_Font *_time_font;
-  int _last_renderer_time;
-  Texture _time_texture;
 
-  std::vector<Texture> _lakitu_status_imgs;
-  std::vector<Texture> _item_imgs, _curse_imgs, _joypad_status_imgs,
+  TTF_Font *_countdown_font;
+  int _last_renderer_countdown_time;
+  Texture _countdown_texture;
 
-  _robot_status_imgs;
+  // share textures
+  std::vector<Texture> _lakitu_status_imgs, _item_imgs, _curse_imgs,
+  _joypad_status_imgs, _robot_status_imgs;
 
   // items
   std::string _data_path, _sound_path;
@@ -1101,18 +1112,22 @@ int main(int argc, char** argv) {
     ROS_ERROR("game.init() failed!");
     return false;
   }
-  ros::Rate rate(10);
+  ros::Rate update_rate(40);
+  Timer last_render;
   while (ros::ok()) {
     if (!game.update()) {
       ROS_ERROR("game.update() failed!");
       return false;
     }
-    if (!game.render()) {
-      ROS_ERROR("game.render() failed!");
-      return false;
+    if (last_render.getTimeSeconds() > .1) {
+      if (!game.render()) {
+        ROS_ERROR("game.render() failed!");
+        return false;
+      }
+      last_render.reset();
     }
     ros::spinOnce();
-    rate.sleep();
+    update_rate.sleep();
   } // end while (ros::ok())
   cv::destroyWindow("view"); //Eric
   return (game.clean() ? 0 : -1);
