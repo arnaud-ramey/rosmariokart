@@ -1,5 +1,6 @@
 <launch>
 <arg name="p1" value="mip"/>
+
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" required="true" >
   <param name="winw" value="300"/>

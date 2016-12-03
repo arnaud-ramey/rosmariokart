@@ -1,19 +1,13 @@
 <launch>
 <arg name="p1" value="mip"/>
 <arg name="p2" value="sumo"/>
+
 <!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" required="true" >
-<<<<<<< HEAD
-  <param name="gui_w" value="1200"/>
-  <param name="gui_h" value="768"/>
-<!--
-=======
+
   <param name="winw" value="1050"/>
   <param name="winh" value="550"/>
->>>>>>> 2a869d0158ca88843c7b475091978a519fb16a4d
-  <param name="axis_linear" value="3"/>
--->
   <param name="axis_linear" value="1"/>
   <param name="axis_angular" value="0"/>
   <param name="axis_90turn" value="4"/>

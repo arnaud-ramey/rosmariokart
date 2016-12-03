@@ -1,20 +1,39 @@
 <launch>
-<group ns="sumo">
-  <param name="scale_linear" value="32"/>
-  <param name="scale_angular" value="30"/>
-  <!-- Driver for second joystick. -->
-  <node pkg="joy" type="joy_node" name="joy2" output="screen" >
-    <param name="dev" value="/dev/input/js1" />
-    <param name="autorepeat_rate" value="25" />
-  </node>
-  <!-- rossumo driver -->
-  <node pkg="rossumo" type="rossumo.exe" name="sumo" respawn="false" output="screen">
-    <param name="camera_calibration_filename" value="$(find rossumo)/data/sumo_camera_parameters.yaml"/>
-    <param name="camera_calibration_camname" value="head_camera"/>
-  </node>
-  <!-- sumo animations
-  rostopic pub -1 /sumo/animation std_msgs/String "data: 'win'" -->
-  <node pkg="rosmariokart" type="sumo_animations.exe" name="sumo_animations" respawn="false" output="screen"
-        args="" />
+
+<arg name="robot" default="rossumo" />
+<arg name="device" default="/dev/input/js0" />
+<arg name="ip" default="192.168.2.1" />
+
+<group ns="$(arg robot)">
+ 
+	<!-- Driver for the joystick. -->
+	<node pkg="joy" type="joy_node" name="joy_$(arg robot)" output="screen" >
+		<param name="dev" value="$(arg device)" />
+		<param name="autorepeat_rate" value="25" />
+	</node>
+
+	<!-- Sumo specific teleoperation driver -->
+	<node pkg="rossumo" type="sumo_teleop_joy.exe" name="teleop" output="screen">
+		<param name="axis_180_360turn" value="5"/>
+		<param name="axis_90turn" value="4"/>
+		<param name="axis_angular" value="3"/>
+		<param name="axis_linear" value="1"/>
+		<param name="button_anim" value="6"/>
+		<param name="button_high_jump" value="7"/>
+		<param name="button_posture" value="5"/>
+		<param name="scale_angular" value="30"/>
+		<param name="scale_linear" value="60"/>
+	</node>
+	
+	<!-- rossumo driver -->
+	<node pkg="rossumo" type="rossumo.exe" name="sumo" respawn="false" output="screen">
+		<param name="ip_address" value="$(arg ip)"/>
+	</node>
+    
+	<!-- sumo animations
+	rostopic pub -1 /sumo/animation std_msgs/String "data: 'win'" -->
+	<node pkg="rosmariokart" type="sumo_animations.exe" name="sumo_animations"
+		respawn="false" output="screen"	args="" />
+        
 </group>
 </launch>

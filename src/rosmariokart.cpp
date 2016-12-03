@@ -24,6 +24,7 @@ ________________________________________________________________________________
 
 \section Parameters
  */
+
 #include "rosmariokart/rosmariokart.h"
 #include "rosmariokart/sdl_utils.h"
 // third parties
@@ -32,11 +33,15 @@ ________________________________________________________________________________
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/Joy.h>
+#include <sensor_msgs/Image.h>
+#include <image_transport/image_transport.h>
+#include <opencv2/highgui/highgui.hpp>  // To be confirmed Eric
+#include <cv_bridge/cv_bridge.h>
 #include <ros/package.h>
 
 class Game {
 public:
-  Game() : _nh_private("~") {
+  Game() : _nh_private("~"), it(_nh_public) {
   }
 
   bool init() {
@@ -85,10 +90,14 @@ public:
       // params
       _nh_public.param(p->name + "/scale_angular", p->scale_angular, 1.0);
       _nh_public.param(p->name + "/scale_linear", p->scale_linear, 1.0);
+   
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
       p->joy_sub = _nh_public.subscribe<sensor_msgs::Joy>
                    (p->name + "/joy", 1, boost::bind(&Game::joy_cb, this, _1, i));
+     
+      p->it_cam_sub = it.subscribe(p->name + "/camera/image_raw", 1, boost::bind(&Game::cam_cb, this, _1, i));            
+    
       // create publishers
       p->cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
                         (p->name + "/cmd_vel", 1);
@@ -158,30 +167,45 @@ public:
 
     // configure GUI
     if (_nplayers == 1) {
-      _item_w = std::min(_winw, _winh);
-      int paddingw = (_winw - _item_w) / 2;
-      int paddingh = (_winh - _item_w) / 2;
-      _players[0].item_roi  = Point2d(paddingw, paddingh);
+      _item_w = std::min(_winw, _winh)/3;
+
+      _players[0].item_tl_corner  = Point2d(_winw - _item_w, _winh - 3*_item_w);
+      _players[0].win_center = Point2d(0, 0);
     }
     else if (_nplayers == 2) {
-      _item_w = std::min(_winw / 2, _winh);
-      int paddingw = (_winw - 2 * _item_w) / 2;
-      int paddingh = (_winh - _item_w) / 2;
-      _players[0].item_roi  = Point2d(paddingw, paddingh);
-      _players[1].item_roi  = Point2d(_winw/2, paddingh);
+     // Test if image have to be splitted in Right-Left or Up-Down
+      _screen_main = std::max(_winw,_winh);
+
+      _item_w = std::min(_winw, _winh)/3;
+
+      if (_screen_main == _winw){ //Split Right_Left
+           _players[0].item_tl_corner  = Point2d(_winw/2 - _item_w, 0);
+           _players[1].item_tl_corner  = Point2d(_winw - _item_w, _winh - 1*_item_w);
+      }
+      else{
+          _players[0].item_tl_corner  = Point2d(_winw - _item_w, 0);
+          _players[1].item_tl_corner  = Point2d(_winw - _item_w, _winh - 1*_item_w);
+      }
+//      _players[0].item_tl_corner  = Point2d(paddingw, paddingh);
+
+//      _item_w = std::min(_winw / 2, _winh);
+//      int paddingw = (_winw - 2 * _item_w) / 2
+//      int paddingh = (_winh - _item_w) / 2;
+//      _players[0].item_tl_corner  = Point2d(paddingw, paddingh);
+//      _players[1].item_tl_corner  = Point2d(_winw/2, paddingh);
     }
     else if (_nplayers == 3 || _nplayers == 4) {
       _item_w = std::min(_winw / 2, _winh / 2);
       int paddingw = (_winw - 2 * _item_w) / 2;
       int paddingh = (_winh - 2 * _item_w) / 2;
-      _players[0].item_roi  = Point2d(paddingw, paddingh);
-      _players[1].item_roi  = Point2d(_winw/2, paddingh);
-      _players[2].item_roi  = Point2d(paddingw, _winh/2);
+      _players[0].item_tl_corner  = Point2d(paddingw, paddingh);
+      _players[1].item_tl_corner  = Point2d(_winw/2, paddingh);
+      _players[2].item_tl_corner  = Point2d(paddingw, _winh/2);
       if (_nplayers == 4)
-        _players[3].item_roi  = Point2d(_winw/2, _winh/2);
+        _players[3].item_tl_corner  = Point2d(_winw/2, _winh/2);
     }
     // put robot background
-    _player_avatars.resize(_nplayers);
+
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
       std::string imgname = "random_robot.png";
@@ -192,7 +216,7 @@ public:
       else if (p->name.find("sumo") != std::string::npos)
         imgname = "white_sumo_black_bg.png";
       std::string fullfilename = _data_path + std::string("robots/") + imgname;
-      _player_avatars[i].from_file(renderer, fullfilename, _item_w);
+      p->_player_avatars.from_file(renderer, fullfilename, _item_w);
     } // end for i
 
     // load Items
@@ -337,7 +361,7 @@ public:
     }
   } // end update()
 
-  //////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////// ERIC Marque page
 
   bool render() {
     DEBUG_PRINT("render()-%g s!", _race_timer.getTimeSeconds());
@@ -347,12 +371,16 @@ public:
     // draw warnings if needed
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
+
+      // draw image camera if available (TODO Eric)
+      //ok = ok && _player_camera[i].render(renderer, p->win_center);  // TODO - encapsuler l'affichage fromrawdata par exemple dans le sdl.utils...
+
       // draw joypad status
       if (p->joypad_status != JOYPAD_OK)
-        ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_roi);
+        ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_tl_corner);
       // draw robot status
       else if (p->robot_status != ROBOT_OK)
-        ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_roi);
+        ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_tl_corner);
     } // end for i
 
     // render avatars
@@ -364,12 +392,13 @@ public:
         // do nothing if no joypad or robot
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
-        ok = ok && _player_avatars[i].render(renderer, p->item_roi);
+        ok = ok && p->_player_avatars.render(renderer, p->item_tl_corner);
       } // end for i
     } // end GAME_STATUS_WAITING
 
     if (_game_status == GAME_STATUS_COUNTDOWN) {
       ok = ok && _lakitu.render(renderer);
+
     } // end GAME_STATUS_COUNTDOWN
 
     if (_game_status == GAME_STATUS_RACE) {
@@ -381,13 +410,13 @@ public:
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
         if (p->curse != CURSE_NONE)
-          ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->item_roi);
+          ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->item_tl_corner);
         else if (p->item == ITEM_ROULETTE)
-          ok = ok && _item_imgs[random_item()].render(renderer, p->item_roi);
+          ok = ok && _item_imgs[random_item()].render(renderer, p->item_tl_corner);
         else if (p->item != ITEM_NONE)
-          ok = ok && _item_imgs[p->item].render(renderer, p->item_roi);
+          ok = ok && _item_imgs[p->item].render(renderer, p->item_tl_corner);
         else // (CURSE_NONE && ITEM_NONE)
-          ok = ok && _player_avatars[i].render(renderer, p->item_roi);
+          ok = ok && p->_player_avatars.render(renderer, p->item_tl_corner);
       } // end for i
 
       if (_lakitu_status == LAKITU_LIGHT3) // show lakitu going upwards
@@ -837,6 +866,61 @@ protected:
     p->cmd_vel_pub.publish(vel);
     return true;
   } // end set_speed()
+  
+  
+  
+  ///////ADDED BY ERIC ///////////////////////////////////////////////////////////////////
+
+  //! \player_idx starts at 0
+  void cam_cb(const sensor_msgs::Image::ConstPtr& cam,
+              unsigned int player_idx) {
+  /*ROS_INFO("Image du joueur %i (%i x %i)  step:%i", player_idx, cam->width, cam->height, cam->step);*/
+  DEBUG_PRINT("cam_cb(%i)", player_idx);
+ 
+    if (player_idx >= _nplayers) // sanity check
+      return;
+    Player* p = &(_players[player_idx]);
+  
+//  // Test affichage donnée dans fenetre openCV
+//    try
+//     {
+//      cv::imshow("view", cv_bridge::toCvShare(cam, "bgr8")->image);
+//      cv::waitKey(30);
+//     }
+//     catch (cv_bridge::Exception& e)
+//     {
+//       ROS_ERROR("Could not convert from '%s' to 'bgr8'.", cam->encoding.c_str());
+//     }
+//// Fin Test
+
+
+  // get cv_image data from ROS message using cv_bridge
+  cv_bridge::CvImagePtr cv_image_ptr = cv_bridge::toCvCopy(cam,"bgr8");
+
+  // Create surface from data image
+  SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(cv_image_ptr->image.data, cv_image_ptr->image.rows, cv_image_ptr->image.cols, 24,
+                                               cv_image_ptr->image.step, 0, 0, 0, 0);
+
+        if (surface == NULL) {
+		  SDL_Log("Creating surface failed: %s", SDL_GetError());
+		  exit(1);
+		}
+
+   // _player_camera[player_idx] = *SDL_CreateTextureFromSurface(renderer, surface);
+
+
+   SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    if (texture == NULL) {
+        fprintf(stderr, "CreateTextureFromSurface failed: %s\n", SDL_GetError());
+        exit(1);
+    }
+
+    SDL_FreeSurface(surface);
+
+  
+  } // end cam_cb();
+
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -899,6 +983,7 @@ protected:
       curse = CURSE_NONE;
       joypad_status = JOYPAD_NEVER_RECEIVED;
       robot_status = ROBOT_NEVER_RECEIVED;
+      camera_status = CAMERA_NEVER_RECEIVED ;
       scale_linear = scale_angular = 1;
       item_button_before = sharp_turn_before = false;
     }
@@ -924,17 +1009,20 @@ protected:
     }
 
     std::string name;
-    Point2d item_roi;
-    ros::Subscriber joy_sub;
+    Point2d item_tl_corner,win_center;
+    ros::Subscriber joy_sub ;
+    image_transport::Subscriber it_cam_sub;  // Ajout Eric 
     ros::Publisher cmd_vel_pub, sharp_turn_pub, animation_pub;
     Item item;
     Curse curse;
     JoypadStatus joypad_status;
     RobotStatus robot_status;
+    CameraStatus camera_status;
     bool sharp_turn_before, item_button_before;
     double scale_angular, scale_linear;
     Timer curse_timer, roulette_timer, last_joy_updated;
     unsigned int curse_caster_idx;
+    Texture _player_avatars, _player_camera;
   }; // end struct Player //////////////////////////////////////////////////////
 
   SDL_Window* window;
@@ -967,13 +1055,17 @@ protected:
   Texture _time_texture;
   std::vector<Texture> _lakitu_status_imgs;
 
-  std::vector<Texture> _player_avatars, _item_imgs, _curse_imgs, _joypad_status_imgs,
+  std::vector<Texture> _item_imgs, _curse_imgs, _joypad_status_imgs,
   _robot_status_imgs;
 
   // items
   std::string _data_path, _sound_path;
-  int _item_w; // pixels
+  int _item_w, _screen_main;  // pixels
   std::vector<double> _curse_timeout;
+
+  //See later for dding subscription to image sent by camera using image_transport
+  image_transport::ImageTransport it;
+
 }; // end class Game
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -983,6 +1075,11 @@ int main(int argc, char** argv) {
   srand(time(NULL));
   srand48(time(NULL));
   Game game;
+  
+  //Eric TEST
+  cv::namedWindow("view");
+  cv::startWindowThread();
+
   if (!game.init()) {
     ROS_ERROR("game.init() failed!\n");
     return false;
@@ -1000,5 +1097,6 @@ int main(int argc, char** argv) {
     ros::spinOnce();
     rate.sleep();
   } // end while (ros::ok())
+  cv::destroyWindow("view"); //Eric
   return (game.clean() ? 0 : -1);
 }

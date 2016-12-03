@@ -48,6 +48,14 @@ enum JoypadStatus {
   JOYPAD_TIMEOUT        = 4,
   NJOYPAD_STATUSES      = 5
 };
+
+enum CameraStatus {
+  CAMERA_NEVER_RECEIVED = 0,
+  CAMERA_OK             = 1,
+  NO_CAMERA_AVAILABLE   = 2,
+  CAMERA_TIMEOUT        = 3,
+  NCAMERA_STATUS         = 4
+};
 enum RobotStatus {
   ROBOT_NEVER_RECEIVED = 0,
   ROBOT_OK             = 1,
