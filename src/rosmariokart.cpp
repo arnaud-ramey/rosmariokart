@@ -31,12 +31,13 @@ ________________________________________________________________________________
 #include <std_msgs/Float32.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
+#include <image_transport/image_transport.h>
 #include <sensor_msgs/Joy.h>
 #include <ros/package.h>
 
 class Game {
 public:
-  Game() : _nh_private("~") {
+  Game() : _nh_private("~"), _it(_nh_public) {
   }
 
   bool init() {
@@ -88,14 +89,15 @@ public:
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
       p->joy_sub = _nh_public.subscribe<sensor_msgs::Joy>
-                   (p->name + "/joy", 1, boost::bind(&Game::joy_cb, this, _1, i));
+          (p->name + "/joy", 1, boost::bind(&Game::joy_cb, this, _1, i));
+      p->rgb_sub = _it.subscribe(p->name + "/image", 1, boost::bind(&Game::rgb_cb, this, _1, i));
       // create publishers
       p->cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
-                        (p->name + "/cmd_vel", 1);
+          (p->name + "/cmd_vel", 1);
       p->animation_pub  = _nh_public.advertise<std_msgs::String>
-                          (p->name + "/animation", 1);
+          (p->name + "/animation", 1);
       p->sharp_turn_pub = _nh_public.advertise<std_msgs::Float32>
-                          (p->name + "/sharp_turn", 1);
+          (p->name + "/sharp_turn", 1);
     }
 
     // init SDL
@@ -106,17 +108,17 @@ public:
     //Initialize PNG loading
     int imgFlags = IMG_INIT_PNG;
     if( !( IMG_Init( imgFlags ) & imgFlags ) ) {
-      ROS_ERROR( "SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError() );
+      ROS_ERROR( "SDL_image could not initialize! SDL_image Error: %s", IMG_GetError() );
       return false;
     }
     //Initialize SDL_mixer
     if( Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048 ) < 0 ) {
-      ROS_ERROR( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+      ROS_ERROR( "SDL_mixer could not initialize! SDL_mixer Error: %s", Mix_GetError() );
       return false;
     }
     //Initialize SDL_ttf
     if( TTF_Init() == -1 ) {
-      printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
+      printf( "SDL_ttf could not initialize! SDL_ttf Error: %s", TTF_GetError() );
       return false;
     }
     // create window
@@ -144,7 +146,7 @@ public:
     // WAVE, MOD, MIDI, OGG, MP3, FLAC
     // sox cocoa_river.ogg -r 22050 cocoa_river.wav
     if( !(_music = Mix_LoadMUS( (_sound_path + "battle-mode.mp3").c_str() )) ) {
-      ROS_ERROR( "Failed to load music! SDL_mixer Error: %s\n", Mix_GetError() );
+      ROS_ERROR( "Failed to load music! SDL_mixer Error: %s", Mix_GetError() );
       return false;
     }
     Mix_VolumeMusic(128);
@@ -161,27 +163,26 @@ public:
       _item_w = std::min(_winw, _winh);
       int paddingw = (_winw - _item_w) / 2;
       int paddingh = (_winh - _item_w) / 2;
-      _players[0].item_roi  = Point2d(paddingw, paddingh);
+      _players[0].item_tl_corner  = Point2d(paddingw, paddingh);
     }
     else if (_nplayers == 2) {
       _item_w = std::min(_winw / 2, _winh);
       int paddingw = (_winw - 2 * _item_w) / 2;
       int paddingh = (_winh - _item_w) / 2;
-      _players[0].item_roi  = Point2d(paddingw, paddingh);
-      _players[1].item_roi  = Point2d(_winw/2, paddingh);
+      _players[0].item_tl_corner  = Point2d(paddingw, paddingh);
+      _players[1].item_tl_corner  = Point2d(_winw/2, paddingh);
     }
     else if (_nplayers == 3 || _nplayers == 4) {
       _item_w = std::min(_winw / 2, _winh / 2);
       int paddingw = (_winw - 2 * _item_w) / 2;
       int paddingh = (_winh - 2 * _item_w) / 2;
-      _players[0].item_roi  = Point2d(paddingw, paddingh);
-      _players[1].item_roi  = Point2d(_winw/2, paddingh);
-      _players[2].item_roi  = Point2d(paddingw, _winh/2);
+      _players[0].item_tl_corner  = Point2d(paddingw, paddingh);
+      _players[1].item_tl_corner  = Point2d(_winw/2, paddingh);
+      _players[2].item_tl_corner  = Point2d(paddingw, _winh/2);
       if (_nplayers == 4)
-        _players[3].item_roi  = Point2d(_winw/2, _winh/2);
+        _players[3].item_tl_corner  = Point2d(_winw/2, _winh/2);
     }
     // put robot background
-    _player_avatars.resize(_nplayers);
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
       std::string imgname = "random_robot.png";
@@ -192,7 +193,7 @@ public:
       else if (p->name.find("sumo") != std::string::npos)
         imgname = "white_sumo_black_bg.png";
       std::string fullfilename = _data_path + std::string("robots/") + imgname;
-      _player_avatars[i].from_file(renderer, fullfilename, _item_w);
+      p->_avatar.from_file(renderer, fullfilename, _item_w);
     } // end for i
 
     // load Items
@@ -239,7 +240,7 @@ public:
     _lakitu_center.x = _winw / 2;
     _lakitu_center.y = _winh / 2;
     _lakitu_status_imgs.resize(NLAKITU_STATUSES);
-    DEBUG_PRINT("lakiu_roi:%gx%g", _lakitu_center.x, _lakitu_center.y);
+    DEBUG_PRINT("lakiu_roi:%gx%g\n", _lakitu_center.x, _lakitu_center.y);
     ok = ok && _lakitu_status_imgs[LAKITU_INVISIBLE].from_file(renderer, _data_path + "lakitu/0.png", lakitu_width);
     ok = ok && _lakitu_status_imgs[LAKITU_LIGHT0].from_file(renderer, _data_path + "lakitu/0.png", lakitu_width);
     ok = ok && _lakitu_status_imgs[LAKITU_LIGHT1].from_file(renderer, _data_path + "lakitu/1.png", lakitu_width);
@@ -269,7 +270,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   bool restart_race() {
-    DEBUG_PRINT("restart_race()");
+    DEBUG_PRINT("restart_race()\n");
     Mix_HaltMusic();
     _game_status = GAME_STATUS_WAITING;
     _lakitu_status = LAKITU_INVISIBLE;
@@ -282,7 +283,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   bool finish_race() {
-    DEBUG_PRINT("Status: GAME_STATUS_RACE_OVER;");
+    DEBUG_PRINT("Status: GAME_STATUS_RACE_OVER\n");
     _game_status = GAME_STATUS_RACE_OVER;
     Mix_HaltMusic();
     bool ok = play_sound("you-win.wav");
@@ -340,7 +341,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   bool render() {
-    DEBUG_PRINT("render()-%g s!", _race_timer.getTimeSeconds());
+    DEBUG_PRINT("render()-%g s!\n", _race_timer.getTimeSeconds());
     SDL_RenderClear( renderer );
     bool ok = true;
 
@@ -349,10 +350,10 @@ public:
       Player* p = &(_players[i]);
       // draw joypad status
       if (p->joypad_status != JOYPAD_OK)
-        ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_roi);
+        ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_tl_corner);
       // draw robot status
       else if (p->robot_status != ROBOT_OK)
-        ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_roi);
+        ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_tl_corner);
     } // end for i
 
     // render avatars
@@ -364,7 +365,7 @@ public:
         // do nothing if no joypad or robot
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
-        ok = ok && _player_avatars[i].render(renderer, p->item_roi);
+        ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
       } // end for i
     } // end GAME_STATUS_WAITING
 
@@ -381,13 +382,13 @@ public:
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
         if (p->curse != CURSE_NONE)
-          ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->item_roi);
+          ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->item_tl_corner);
         else if (p->item == ITEM_ROULETTE)
-          ok = ok && _item_imgs[random_item()].render(renderer, p->item_roi);
+          ok = ok && _item_imgs[random_item()].render(renderer, p->item_tl_corner);
         else if (p->item != ITEM_NONE)
-          ok = ok && _item_imgs[p->item].render(renderer, p->item_roi);
+          ok = ok && _item_imgs[p->item].render(renderer, p->item_tl_corner);
         else // (CURSE_NONE && ITEM_NONE)
-          ok = ok && _player_avatars[i].render(renderer, p->item_roi);
+          ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
       } // end for i
 
       if (_lakitu_status == LAKITU_LIGHT3) // show lakitu going upwards
@@ -395,7 +396,7 @@ public:
 
       int time = _race_duration + 1 - _race_timer.getTimeSeconds();
       ok = ok && render_time(time, 255, 0, 0)
-           && _time_texture.render_center(renderer, Point2d(_winw/2, 50),1);
+          && _time_texture.render_center(renderer, Point2d(_winw/2, 50),1);
     } // end GAME_STATUS_RACE
 
     if (_game_status == GAME_STATUS_RACE_OVER) {
@@ -442,7 +443,7 @@ protected:
     bool checkok = check_joypads_robots();
     // check state changes
     if (checkok) { // start countdown
-      DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN");
+      DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN\n");
       play_sound("begin-race.wav");
       _game_status = GAME_STATUS_COUNTDOWN;
       _countdown.reset();
@@ -475,7 +476,7 @@ protected:
       }
       if (play_rocket) play_sound("boost.wav");
       if (play_dud) play_sound("spinout.wav");
-      DEBUG_PRINT("Status: GAME_STATUS_RACE");
+      DEBUG_PRINT("Status: GAME_STATUS_RACE\n");
     }
     else if (time >= 3 + 1.20 && _lakitu_status == LAKITU_LIGHT1) {
       _lakitu_status = LAKITU_LIGHT2;
@@ -557,7 +558,7 @@ protected:
       }
       else if ((p->curse != CURSE_NONE) // whatever curse
                && time_curse > _curse_timeout[p->curse]) {
-        DEBUG_PRINT("Player %i: timeout on curse %i", player_idx, p->curse);
+        DEBUG_PRINT("Player %i: timeout on curse %i\n", player_idx, p->curse);
         p->receive_curse(CURSE_NONE, player_idx);
       }
     } // end for player_idx
@@ -653,7 +654,7 @@ protected:
       std_msgs::Float32 msg;
       msg.data = angle_rad;
       p->sharp_turn_pub.publish(msg);
-      DEBUG_PRINT("Player %i: sharp turn of angle %g rad!", player_idx, angle_rad);
+      DEBUG_PRINT("Player %i: sharp turn of angle %g rad!\n", player_idx, angle_rad);
       retval = true;
     }
     p->sharp_turn_before = angle_rad;
@@ -665,7 +666,7 @@ protected:
   //! \player_idx starts at 0
   bool item_button_cb(unsigned int player_idx,
                       bool skip_repetition_check = false) {
-    DEBUG_PRINT("item_button_cb(%i, %i)", player_idx, skip_repetition_check);
+    DEBUG_PRINT("item_button_cb(%i, %i)\n", player_idx, skip_repetition_check);
     if (player_idx >= _nplayers) // sanity check
       return false;
     if (_game_status != GAME_STATUS_RACE) // nothing to do
@@ -777,7 +778,7 @@ protected:
   bool set_speed(unsigned int player_idx,
                  double v,
                  double w) {
-    //DEBUG_PRINT("set_speed(%i, %g, %g)", player_idx, v, w);
+    //DEBUG_PRINT("set_speed(%i, %g, %g)\n", player_idx, v, w);
     if (player_idx >= _nplayers) // sanity check
       return false;
     Player* p = &(_players[player_idx]);
@@ -790,10 +791,10 @@ protected:
     else if (_game_status == GAME_STATUS_COUNTDOWN) {
       if (c == CURSE_NONE && fabs(v) > .1) {
         if (fabs(_countdown.getTimeSeconds() - (3+1.2)) < .2) { // second red light -> rocket start
-          DEBUG_PRINT("Player %i: rocket start!", player_idx);
+          DEBUG_PRINT("Player %i: rocket start!\n", player_idx);
           p->receive_curse(CURSE_ROCKET_START, player_idx);
         } else if (_countdown.getTimeSeconds() < 3+2.2) { // earlier than 200ms before green light -> dud start
-          DEBUG_PRINT("Player %i: dud start!", player_idx);
+          DEBUG_PRINT("Player %i: dud start!\n", player_idx);
           p->receive_curse(CURSE_DUD_START, player_idx);
         }
       } // end fabs(v) > .1
@@ -843,7 +844,7 @@ protected:
   //! \player_idx starts at 0
   void joy_cb(const sensor_msgs::Joy::ConstPtr& joy,
               unsigned int player_idx) {
-    //DEBUG_PRINT("joy_cb(%i)", player_idx);
+    //DEBUG_PRINT("joy_cb(%i)\n", player_idx);
     if (player_idx >= _nplayers) // sanity check
       return;
     Player* p = &(_players[player_idx]);
@@ -891,6 +892,21 @@ protected:
   } // end joy_cb();
 
   //////////////////////////////////////////////////////////////////////////////
+
+  //! \player_idx starts at 0
+  void rgb_cb(const sensor_msgs::ImageConstPtr& rgb,
+              unsigned int player_idx) {
+    DEBUG_PRINT("rgb_cb(%i)\n", player_idx);
+    if (player_idx >= _nplayers) // sanity check
+      return;
+    Player* p = &(_players[player_idx]);
+    //if (!p->_rgb.from_ros_image(renderer, *rgb, _item_w)) {
+    if (!p->_avatar.from_ros_image(renderer, *rgb, _item_w)) {
+      ROS_WARN("Texture::from_ros_image() failed!");
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
   struct Player {
@@ -924,8 +940,9 @@ protected:
     }
 
     std::string name;
-    Point2d item_roi;
+    Point2d item_tl_corner;
     ros::Subscriber joy_sub;
+    image_transport::Subscriber rgb_sub;
     ros::Publisher cmd_vel_pub, sharp_turn_pub, animation_pub;
     Item item;
     Curse curse;
@@ -935,6 +952,7 @@ protected:
     double scale_angular, scale_linear;
     Timer curse_timer, roulette_timer, last_joy_updated;
     unsigned int curse_caster_idx;
+    Texture _avatar;
   }; // end struct Player //////////////////////////////////////////////////////
 
   SDL_Window* window;
@@ -951,6 +969,7 @@ protected:
 
   // ros stuff
   ros::NodeHandle _nh_public, _nh_private;
+  image_transport::ImageTransport _it;
 
   // sound stuff
   std::map<std::string, Mix_Chunk*> _chunks;
@@ -967,7 +986,7 @@ protected:
   Texture _time_texture;
   std::vector<Texture> _lakitu_status_imgs;
 
-  std::vector<Texture> _player_avatars, _item_imgs, _curse_imgs, _joypad_status_imgs,
+  std::vector<Texture> _avatar, _item_imgs, _curse_imgs, _joypad_status_imgs,
   _robot_status_imgs;
 
   // items
@@ -984,17 +1003,17 @@ int main(int argc, char** argv) {
   srand48(time(NULL));
   Game game;
   if (!game.init()) {
-    ROS_ERROR("game.init() failed!\n");
+    ROS_ERROR("game.init() failed!");
     return false;
   }
   ros::Rate rate(10);
   while (ros::ok()) {
     if (!game.update()) {
-      ROS_ERROR("game.update() failed!\n");
+      ROS_ERROR("game.update() failed!");
       return false;
     }
     if (!game.render()) {
-      ROS_ERROR("game.render() failed!\n");
+      ROS_ERROR("game.render() failed!");
       return false;
     }
     ros::spinOnce();

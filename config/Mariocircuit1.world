@@ -12,8 +12,7 @@ define sumo_robot position
     point[4] [-0.1 0]
     z [0 1]
   )
-
-  origin [0.000 0.000 0.000 0.000]
+  origin [0 0 0 0]
   gui_nose 1
   drive "diff"
 
@@ -21,6 +20,20 @@ define sumo_robot position
   # odometry error model parameters,
   # only used if localization is set to "odom"
   odom_error [0.03 0.03 0.00 0.05]
+)
+
+define sumocam camera # http://playerstage.sourceforge.net/doc/stage-3.0.1/group__model__camera.html
+(
+  # camera properties
+  resolution [ 640 480 ]
+  fov [ 70.0 40.0 ]
+  range [ 0.2 8.0 ]
+
+  # model properties
+  #size [ -0.100 0.070 0.050 ]
+  size [ 0 0 0 ]
+  color "black"
+  #origin [ -0.2 0 0 0 ] # specify the position of the object's center, relative to its pose
 )
 
 define floorplan model
@@ -63,22 +76,24 @@ floorplan
 
 # throw in the robots
 sumo_robot(
-    pose [ 5.90 -1.800 0.000 90.000 ]
-    name "sumo1"
-    color "red"
+  pose [ 5.90 -1.800 0.000 90.000 ]
+  sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
+  name "sumo1"
+  color "red"
 )
 sumo_robot(
-    pose [ 6.50 -1.800 0.000 90.000 ]
-    name "sumo2"
-    color "green"
+  pose [ 6.50 -1.800 0.000 90.000 ]
+  sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
+  name "sumo2"
+  color "green"
 )
 sumo_robot(
-    pose [ 5.90 -2.500 0.000 90.000 ]
-    name "sumo3"
-    color "blue"
+  pose [ 5.90 -2.500 0.000 90.000 ]
+  name "sumo3"
+  color "blue"
 )
 sumo_robot(
-    pose [ 6.50 -2.500 0.000 90.000 ]
-    name "sumo4"
-    color "white"
+  pose [ 6.50 -2.500 0.000 90.000 ]
+  name "sumo4"
+  color "white"
 )
