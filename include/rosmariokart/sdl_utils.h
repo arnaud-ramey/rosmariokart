@@ -451,6 +451,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  inline bool empty() const { return _width == 0 || _height == 0;}
   inline int get_width() const { return _width;}
   inline int get_height() const { return _height;}
   inline double get_resize_scale() const { return _resize_scale;}
@@ -468,7 +469,7 @@ public:
       printf( "Unable to load image %s! SDL Error: %s\n", str.c_str(), SDL_GetError() );
       return false;
     }
-    return from_texture(renderer, goalwidth, goalheight, goalscale);
+    return from_surface(renderer, goalwidth, goalheight, goalscale);
   }// end from_file()
 
   //////////////////////////////////////////////////////////////////////////////
@@ -495,25 +496,33 @@ public:
     } else */
 
     if (img.encoding == "bgr8") {
-      // http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
-      // https://wiki.libsdl.org/SDL_CreateRGBSurfaceFrom
       depth = 24; // the depth of the surface in bits
-      Rmask = 0;//0x0000ff;
-      Gmask = 0;//0x00ff00;
-      Bmask = 0;//0xff0000;
+      Rmask = 0x0000ff;
+      Gmask = 0x00ff00;
+      Bmask = 0xff0000;
       Amask = 0;
     } else if (img.encoding == "rgba8") {
       depth = 32; // the depth of the surface in bits
-      Rmask = 0;// 0xff000000;
-      Gmask = 0;//0x00ff0000;
-      Bmask = 0;//0x0000ff00;
-      Amask = 0;//0x000000ff;
+      // http://www.gamedev.net/topic/227811-sdl_creatergbsurfacefrom/
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+      Rmask = 0xff000000;
+      Gmask = 0x00ff0000;
+      Bmask = 0x0000ff00;
+      Amask = 0x000000ff;
+#else
+      Rmask = 0x000000ff;
+      Gmask = 0x0000ff00;
+      Bmask = 0x00ff0000;
+      Amask = 0xff000000;
+#endif
     } else {
       printf("from_ros_image(): encoding '%s' is not supported!\n",
              img.encoding.c_str());
       return false;
     }
 
+    // http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
+    // https://wiki.libsdl.org/SDL_CreateRGBSurfaceFrom
     _sdlsurface = SDL_CreateRGBSurfaceFrom((void*) data, img.width, img.height,
                                            depth, pitch,
                                            Rmask, Gmask, Bmask, Amask);
@@ -522,12 +531,12 @@ public:
               SDL_GetError() );
       return false;
     }
-    return from_texture(renderer, goalwidth, goalheight, goalscale);
+    return from_surface(renderer, goalwidth, goalheight, goalscale);
   } // end from_ros_image()
 
   //////////////////////////////////////////////////////////////////////////////
 
-  bool from_texture(SDL_Renderer* renderer,
+  bool from_surface(SDL_Renderer* renderer,
                     int goalwidth = -1, int goalheight = -1, double goalscale = -1) {
     if (goalwidth <= 0 && goalheight <= 0 && goalscale <= 0)
       _resize_scale = 1;
