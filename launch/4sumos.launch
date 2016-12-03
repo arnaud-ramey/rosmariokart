@@ -1,0 +1,47 @@
+<launch>
+<arg name="p1" value="sumo1"/>
+<arg name="p2" value="sumo2"/>
+<arg name="p3" value="sumo3"/>
+<arg name="p4" value="sumo4"/>
+<!-- change IPs -->
+<!--
+<node pkg="rosmariokart" type="4sumos2router.sh" name="foursumos"
+      output="screen" required="true" />
+-->
+
+<!-- rosmariokart -->
+<node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
+      output="screen" required="true" >
+  <param name="winw" value="1050"/>
+  <param name="winh" value="550"/>
+  <param name="axis_linear" value="1"/>
+  <param name="axis_angular" value="0"/>
+  <param name="axis_90turn" value="4"/>
+  <param name="axis_180turn" value="5"/>
+  <param name="button_item" value="3"/>
+  <param name="player1_name" value="$(arg p1)"/>
+  <param name="player2_name" value="$(arg p2)"/>
+<!--
+  <param name="player3_name" value="$(arg p3)"/>
+  <param name="player4_name" value="$(arg p4)"/>
+-->
+</node>
+
+<!-- drivers -->
+<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
+  <arg name="robot" value="$(arg p1)"/>
+  <arg name="joydevice" value="/dev/input/js1"/>
+</include>
+<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
+  <arg name="robot" value="$(arg p2)"/>
+  <arg name="joydevice" value="/dev/input/js2"/>
+</include>
+<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
+  <arg name="robot" value="$(arg p3)"/>
+  <arg name="joydevice" value="/dev/input/js3"/>
+</include>
+<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
+  <arg name="robot" value="$(arg p4)"/>
+  <arg name="joydevice" value="/dev/input/js4"/>
+</include>
+</launch>

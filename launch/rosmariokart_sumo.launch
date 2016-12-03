@@ -1,10 +1,13 @@
 <launch>
-<group ns="sumo">
+<arg name="robot" default="sumo"/>
+<arg name="joydevice" default="/dev/input/js1"/>
+
+<group ns="$(arg robot)">
   <param name="scale_linear" value="32"/>
   <param name="scale_angular" value="30"/>
   <!-- Driver for second joystick. -->
   <node pkg="joy" type="joy_node" name="joy2" output="screen" >
-    <param name="dev" value="/dev/input/js1" />
+    <param name="dev" value="$(arg joydevice)" />
     <param name="autorepeat_rate" value="25" />
   </node>
   <!-- rossumo driver -->
