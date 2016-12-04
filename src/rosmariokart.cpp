@@ -104,6 +104,8 @@ public:
           (p->name + "/animation", 1);
       p->sharp_turn_pub = _nh_public.advertise<std_msgs::Float32>
           (p->name + "/sharp_turn", 1);
+
+      p->item_size_updated = false;
     }
 
     // init SDL
@@ -187,10 +189,12 @@ public:
           player_w =_winw/2;
           player_h = _winh;
 
-          _players[0].item_tl_corner = Point2d(_winw/2 - _item_w, 0);
+          _players[0].item_tl_corner = Point2d(_winw/2 - _item_w + 5 , 5);
+          _players[0].item_bg_tl = Point2d(_winw/2 - _item_w, 0);
           _players[0].player_tl_win = Point2d(0, 0);
 
-          _players[1].item_tl_corner = Point2d(_winw - _item_w,0);
+          _players[1].item_tl_corner = Point2d(_winw - _item_w + 5, 5);
+          _players[1].item_bg_tl = Point2d(_winw - _item_w,0);
           _players[1].player_tl_win = Point2d(_winw/2, 0);
 
       }
@@ -198,10 +202,12 @@ public:
           player_w =_winw;
           player_h = _winh/2;
 
-          _players[0].item_tl_corner = Point2d(_winw - _item_w, 0);
+          _players[0].item_tl_corner = Point2d(_winw - _item_w + 5, 5);
+          _players[0].item_bg_tl = Point2d(_winw - _item_w, 0);
           _players[0].player_tl_win = Point2d(0, 0);
 
-          _players[1].item_tl_corner = Point2d(_winw - _item_w,_winh/2);
+          _players[1].item_tl_corner = Point2d(_winw - _item_w + 5 ,_winh/2 + 5 );
+          _players[1].item_bg_tl = Point2d(_winw - _item_w,_winh/2);
           _players[1].player_tl_win = Point2d(0,_winh/2);
       }
 
@@ -212,17 +218,21 @@ public:
       player_w =_winw/2;
       player_h = _winh/2;
 
-      _players[0].item_tl_corner = Point2d(_winw/2 - _item_w, 0);
+      _players[0].item_tl_corner = Point2d(_winw/2 - _item_w + 5, 5);
+      _players[0].item_bg_tl = Point2d(_winw/2 - _item_w, 0);
       _players[0].player_tl_win = Point2d(0, 0);
 
-      _players[1].item_tl_corner = Point2d(_winw - _item_w,0);
+      _players[1].item_tl_corner = Point2d(_winw - _item_w + 5 , 5 );
+      _players[1].item_bg_tl = Point2d(_winw - _item_w,0);
       _players[1].player_tl_win = Point2d(_winw/2,0);
 
-      _players[2].item_tl_corner = Point2d(_winw/2 - _item_w, _winh/2);
+      _players[2].item_tl_corner = Point2d(_winw/2 - _item_w + 5, _winh/2 +5);
+      _players[2].item_bg_tl = Point2d(_winw/2 - _item_w, _winh/2);
       _players[2].player_tl_win = Point2d(0,_winh/2);
 
       if (_nplayers == 4)
-       _players[3].item_tl_corner = Point2d(_winw - _item_w,_winh/2);
+       _players[3].item_tl_corner = Point2d(_winw - _item_w + 5 ,_winh/2 + 5);
+       _players[3].item_bg_tl = Point2d(_winw - _item_w,_winh/2);
        _players[3].player_tl_win = Point2d(_winw/2,_winh/2);
 
     }
@@ -243,64 +253,87 @@ public:
 
       p->_avatar.from_file(renderer, fullfilename, avatar_w);
 
+      p->curse_tl.x = p->item_tl_corner.x - _item_w;
+      p->curse_tl.y = p->item_tl_corner.y;
+
     } // end for i
 
-    // load Items
-    _item_imgs.resize(NITEMS);
-    bool ok = true;
+   ;
+    if (! load_item(_item_w)){
+        ROS_WARN("from init(): Error loading item images");
+    }
 
-    ok = ok && _item_imgs[ITEM_BOO].from_file(renderer, _data_path + "items/Boo.png", _item_w);
-    ok = ok && _item_imgs[ITEM_GOLDENMUSHROOM].from_file(renderer, _data_path + "items/GoldenMushroom.png", _item_w);
-    ok = ok && _item_imgs[ITEM_LIGHTNING].from_file(renderer, _data_path + "items/Lightning.png", _item_w);
-    ok = ok && _item_imgs[ITEM_MIRROR].from_file(renderer, _data_path + "items/Mirror.png", _item_w);
-    ok = ok && _item_imgs[ITEM_MUSHROOM].from_file(renderer, _data_path + "items/Mushroom.png", _item_w);
-    ok = ok && _item_imgs[ITEM_REDSHELL].from_file(renderer, _data_path + "items/RedShell.png", _item_w);
-    ok = ok && _item_imgs[ITEM_REDSHELL2].from_file(renderer, _data_path + "items/RedShell2.png", _item_w);
-    ok = ok && _item_imgs[ITEM_REDSHELL3].from_file(renderer, _data_path + "items/RedShell3.png", _item_w);
-    ok = ok && _item_imgs[ITEM_STAR].from_file(renderer, _data_path + "items/Star.png", _item_w);
-    // load curses
-    _curse_imgs.resize(NCURSES);
-    ok = ok && _curse_imgs[CURSE_BOO].from_file(renderer, _data_path + "items/BooCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_DUD_START].from_file(renderer, _data_path + "items/DudStartCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_GOLDENMUSHROOM].from_file(renderer, _data_path + "items/GoldenMushroomCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_LIGHTNING].from_file(renderer, _data_path + "items/LightningCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_MIRROR].from_file(renderer, _data_path + "items/MirrorCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_MUSHROOM].from_file(renderer, _data_path + "items/MushroomCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_REDSHELL_HIT].from_file(renderer, _data_path + "items/RedShellCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_REDSHELL_COMING].from_file(renderer, _data_path + "items/RedShellComing.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_ROCKET_START].from_file(renderer, _data_path + "items/RocketStartCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_STAR].from_file(renderer, _data_path + "items/StarCurse.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_TIMEBOMB_COUNTDOWN].from_file(renderer, _data_path + "items/TimeBombCountdown.png", _item_w);
-    ok = ok && _curse_imgs[CURSE_TIMEBOMB_HIT].from_file(renderer, _data_path + "items/TimeBombCurse.png", _item_w);
-    // load joypad statues
-    _joypad_status_imgs.resize(NJOYPAD_STATUSES);
-    ok = ok && _joypad_status_imgs[JOYPAD_OK].from_file(renderer, _data_path + "warnings/joypadOK.png", _item_w);
-    ok = ok && _joypad_status_imgs[JOYPAD_BAD_AXES_NB].from_file(renderer, _data_path + "warnings/joypadError.png", _item_w);
-    ok = ok && _joypad_status_imgs[JOYPAD_BAD_BUTTONS_NB].from_file(renderer, _data_path + "warnings/joypadError.png", _item_w);
-    ok = ok && _joypad_status_imgs[JOYPAD_NEVER_RECEIVED].from_file(renderer, _data_path + "warnings/joypadWarning.png", _item_w);
-    ok = ok && _joypad_status_imgs[JOYPAD_TIMEOUT].from_file(renderer, _data_path + "warnings/joypadWarning.png", _item_w);
-    // load robot statuses
-    _robot_status_imgs.resize(NROBOT_STATUSES);
-    ok = ok && _robot_status_imgs[ROBOT_OK].from_file(renderer, _data_path + "warnings/robotOK.png", _item_w);
-    ok = ok && _robot_status_imgs[ROBOT_NEVER_RECEIVED].from_file(renderer, _data_path + "warnings/robotWarning.png", _item_w);
-    ok = ok && _robot_status_imgs[ROBOT_TIMEOUT].from_file(renderer, _data_path + "warnings/robotWarning.png", _item_w);
-    // load lakitu statuses
-    int lakitu_width = std::min(_winw, _winh);
-    _lakitu_center.x = _winw / 2;
-    _lakitu_center.y = _winh / 2;
-    _lakitu_status_imgs.resize(NLAKITU_STATUSES);
-    DEBUG_PRINT("lakiu_roi:%gx%g\n", _lakitu_center.x, _lakitu_center.y);
-    ok = ok && _lakitu_status_imgs[LAKITU_INVISIBLE].from_file(renderer, _data_path + "lakitu/0.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT0].from_file(renderer, _data_path + "lakitu/0.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT1].from_file(renderer, _data_path + "lakitu/1.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT2].from_file(renderer, _data_path + "lakitu/2.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT3].from_file(renderer, _data_path + "lakitu/3.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_RACE_OVER].from_file(renderer, _data_path + "lakitu/finish.png", lakitu_width);
-
-    if (!ok)
-      return false;
     return restart_race();
   }
+
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool load_item(int item_size) {
+
+      // load Items
+      this->_item_imgs.resize(NITEMS);
+      this->_bg_imgs.resize(NBG);
+      bool ok = true;
+
+      // load Items Background
+      ok = ok && _bg_imgs[BG_ITEMS].from_file(renderer, _data_path + "items/Item_BG.png", item_size+10);
+
+      ok = ok && _item_imgs[ITEM_BOO].from_file(renderer, _data_path + "items/Boo.png", item_size);
+      ok = ok && _item_imgs[ITEM_GOLDENMUSHROOM].from_file(renderer, _data_path + "items/GoldenMushroom.png", item_size);
+      ok = ok && _item_imgs[ITEM_LIGHTNING].from_file(renderer, _data_path + "items/Lightning.png", item_size);
+      ok = ok && _item_imgs[ITEM_MIRROR].from_file(renderer, _data_path + "items/Mirror.png", item_size);
+      ok = ok && _item_imgs[ITEM_MUSHROOM].from_file(renderer, _data_path + "items/Mushroom.png", item_size);
+      ok = ok && _item_imgs[ITEM_REDSHELL].from_file(renderer, _data_path + "items/RedShell.png", item_size);
+      ok = ok && _item_imgs[ITEM_REDSHELL2].from_file(renderer, _data_path + "items/RedShell2.png", item_size);
+      ok = ok && _item_imgs[ITEM_REDSHELL3].from_file(renderer, _data_path + "items/RedShell3.png", item_size);
+      ok = ok && _item_imgs[ITEM_STAR].from_file(renderer, _data_path + "items/Star.png", item_size);
+      // load curses
+      _curse_imgs.resize(NCURSES);
+      ok = ok && _curse_imgs[CURSE_BOO].from_file(renderer, _data_path + "items/BooCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_DUD_START].from_file(renderer, _data_path + "items/DudStartCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_GOLDENMUSHROOM].from_file(renderer, _data_path + "items/GoldenMushroomCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_LIGHTNING].from_file(renderer, _data_path + "items/LightningCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_MIRROR].from_file(renderer, _data_path + "items/MirrorCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_MUSHROOM].from_file(renderer, _data_path + "items/MushroomCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_REDSHELL_HIT].from_file(renderer, _data_path + "items/RedShellCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_REDSHELL_COMING].from_file(renderer, _data_path + "items/RedShellComing.png", item_size);
+      ok = ok && _curse_imgs[CURSE_ROCKET_START].from_file(renderer, _data_path + "items/RocketStartCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_STAR].from_file(renderer, _data_path + "items/StarCurse.png", item_size);
+      ok = ok && _curse_imgs[CURSE_TIMEBOMB_COUNTDOWN].from_file(renderer, _data_path + "items/TimeBombCountdown.png", item_size);
+      ok = ok && _curse_imgs[CURSE_TIMEBOMB_HIT].from_file(renderer, _data_path + "items/TimeBombCurse.png", item_size);
+      // load joypad statues
+      _joypad_status_imgs.resize(NJOYPAD_STATUSES);
+      ok = ok && _joypad_status_imgs[JOYPAD_OK].from_file(renderer, _data_path + "warnings/joypadOK.png", item_size);
+      ok = ok && _joypad_status_imgs[JOYPAD_BAD_AXES_NB].from_file(renderer, _data_path + "warnings/joypadError.png", item_size);
+      ok = ok && _joypad_status_imgs[JOYPAD_BAD_BUTTONS_NB].from_file(renderer, _data_path + "warnings/joypadError.png", item_size);
+      ok = ok && _joypad_status_imgs[JOYPAD_NEVER_RECEIVED].from_file(renderer, _data_path + "warnings/joypadWarning.png", item_size);
+      ok = ok && _joypad_status_imgs[JOYPAD_TIMEOUT].from_file(renderer, _data_path + "warnings/joypadWarning.png", item_size);
+      // load robot statuses
+      _robot_status_imgs.resize(NROBOT_STATUSES);
+      ok = ok && _robot_status_imgs[ROBOT_OK].from_file(renderer, _data_path + "warnings/robotOK.png", item_size);
+      ok = ok && _robot_status_imgs[ROBOT_NEVER_RECEIVED].from_file(renderer, _data_path + "warnings/robotWarning.png", item_size);
+      ok = ok && _robot_status_imgs[ROBOT_TIMEOUT].from_file(renderer, _data_path + "warnings/robotWarning.png", item_size);
+      // load lakitu statuses
+      int lakitu_width = std::min(_winw, _winh);
+      _lakitu_center.x = _winw / 2;
+      _lakitu_center.y = _winh / 2;
+      _lakitu_status_imgs.resize(NLAKITU_STATUSES);
+      DEBUG_PRINT("lakiu_roi:%gx%g\n", _lakitu_center.x, _lakitu_center.y);
+      ok = ok && _lakitu_status_imgs[LAKITU_INVISIBLE].from_file(renderer, _data_path + "lakitu/0.png", lakitu_width);
+      ok = ok && _lakitu_status_imgs[LAKITU_LIGHT0].from_file(renderer, _data_path + "lakitu/0.png", lakitu_width);
+      ok = ok && _lakitu_status_imgs[LAKITU_LIGHT1].from_file(renderer, _data_path + "lakitu/1.png", lakitu_width);
+      ok = ok && _lakitu_status_imgs[LAKITU_LIGHT2].from_file(renderer, _data_path + "lakitu/2.png", lakitu_width);
+      ok = ok && _lakitu_status_imgs[LAKITU_LIGHT3].from_file(renderer, _data_path + "lakitu/3.png", lakitu_width);
+      ok = ok && _lakitu_status_imgs[LAKITU_RACE_OVER].from_file(renderer, _data_path + "lakitu/finish.png", lakitu_width);
+
+      if (!ok)
+        return false;
+
+    return true;
+  }
+  //////////////////////////////////////////////////////////////////////////////
+
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -402,7 +435,7 @@ public:
     if (p->has_rgb()){
     ok = ok && p->_rgb.render(renderer, p->player_tl_camview);}
     else{
-    ok = ok && p->_avatar.render(renderer, p->player_tl_camview); //TODO
+         ok = ok && p->_avatar.render(renderer, Point2d( p->player_tl_win.x + 0.25*player_w, p->player_tl_win.y + 0.25*player_h));
     }
 
     // draw joypad status
@@ -434,16 +467,15 @@ public:
       // draw what needs to be drawn
       for (unsigned int i = 0; i < _nplayers; ++i) {
         Player* p = &(_players[i]);
+        ok = ok && _bg_imgs[BG_ITEMS].render(renderer, p->item_bg_tl); // Background
         //ROS_WARN("Redraw player %i!", i);
         // do nothing if no joypad or robot
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
           continue;
-        if (p->curse != CURSE_NONE)
-          ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->item_tl_corner);
-        else if (p->item == ITEM_ROULETTE)
-          ok = ok && _item_imgs[random_item()].render(renderer, p->item_tl_corner);
-        else if (p->item != ITEM_NONE)
-          ok = ok && _item_imgs[p->item].render(renderer, p->item_tl_corner);
+
+        if (p->curse != CURSE_NONE)     ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->curse_tl);
+        if (p->item == ITEM_ROULETTE)   ok = ok && _item_imgs[random_item()].render(renderer, p->item_tl_corner);
+        else if (p->item != ITEM_NONE)  ok = ok && _item_imgs[p->item].render(renderer, p->item_tl_corner);
 //        else { // (CURSE_NONE && ITEM_NONE)
 //          if (p->has_rgb())
 //            ok = ok && p->_rgb.render(renderer, p->item_tl_corner);
@@ -987,12 +1019,21 @@ protected:
 
     //Also update of the player item_tl_corner and its size to fit the image
 
+    if (!p->item_size_updated) {
+        _item_w = p->_rgb._height/4;
+        load_item(_item_w);
 
-    p->item_tl_corner.x = p->player_tl_camview.x + p->_rgb._width -_item_w;
-    p->item_tl_corner.y = p->player_tl_camview.y;
+        p->item_tl_corner.x = p->player_tl_camview.x + p->_rgb._width -_item_w*1.2;
+        p->item_tl_corner.y = p->player_tl_camview.y;
+        p->item_bg_tl.x = p->item_tl_corner.x -5;
+        p->item_bg_tl.y = p->item_tl_corner.y -5;
+        p->curse_tl.x = p->item_tl_corner.x - 1.2*_item_w;
+        p->curse_tl.y = p->item_tl_corner.y;
 
-    // TODO: Try to update the _item_w size depending on the number of player and of the camview size
-    //          Difficulty: icon item are loaded until during the init() phase...
+        p->item_size_updated=true; // Do the update only onte time by players.
+    }
+
+
 
   }
 
@@ -1035,7 +1076,7 @@ protected:
     }
 
     std::string name;
-    Point2d item_tl_corner,player_tl_win, player_tl_camview;
+    Point2d item_tl_corner,item_bg_tl, curse_tl, player_tl_win, player_tl_camview;
 
     ros::Subscriber joy_sub ;
     image_transport::Subscriber it_cam_sub, rgb_sub;  // Ajout Eric
@@ -1046,7 +1087,7 @@ protected:
     JoypadStatus joypad_status;
     RobotStatus robot_status;
     CameraStatus camera_status;
-    bool sharp_turn_before, item_button_before;
+    bool sharp_turn_before, item_button_before, item_size_updated;
     double scale_angular, scale_linear;
     Timer curse_timer, roulette_timer, last_joy_updated;
     unsigned int curse_caster_idx;
@@ -1077,7 +1118,7 @@ protected:
 
   // opencv stuff
   LakituStatus _lakitu_status;
-  Point2d _lakitu_center;
+  Point2d _lakitu_center ;
   Entity _lakitu;
 
   // time display stuff
@@ -1087,7 +1128,7 @@ protected:
   Texture _countdown_texture;
 
   // share textures
-  std::vector<Texture> _lakitu_status_imgs, _item_imgs, _curse_imgs,
+  std::vector<Texture> _lakitu_status_imgs, _item_imgs, _curse_imgs, _bg_imgs,
   _joypad_status_imgs, _robot_status_imgs;
 
   // items
@@ -1110,22 +1151,28 @@ int main(int argc, char** argv) {
     ROS_ERROR("game.init() failed!");
     return false;
   }
-  ros::Rate update_rate(40);
+  ros::Rate update_rate(25);
   Timer last_render;
+
   while (ros::ok()) {
     if (!game.update()) {
       ROS_ERROR("game.update() failed!");
       return false;
     }
-    if (last_render.getTimeSeconds() > .1) {
+    if (last_render.getTimeSeconds() > 0.06) {
       if (!game.render()) {
         ROS_ERROR("game.render() failed!");
         return false;
       }
       last_render.reset();
     }
+
     ros::spinOnce();
-    update_rate.sleep();
+
+    if (!update_rate.sleep()){
+       // ROS_WARN(" Main Cycle Rate non respected");
+    }
+
   } // end while (ros::ok())
 
   return (game.clean() ? 0 : -1);

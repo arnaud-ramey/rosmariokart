@@ -497,13 +497,15 @@ public:
 
     if (img.encoding == "bgr8") {
       depth = 24; // the depth of the surface in bits
-      Rmask = 0x0000ff;
+      // TODO : Warning Rmask and Bmask has been inverted for the sumo ! encoding information is not coherent
+      Rmask = 0xff0000;
       Gmask = 0x00ff00;
-      Bmask = 0xff0000;
+      Bmask = 0x0000ff;
       Amask = 0;
-    } else if (img.encoding == "rgba8") {
+     } else if (img.encoding == "rgba8") {
       depth = 32; // the depth of the surface in bits
       // http://www.gamedev.net/topic/227811-sdl_creatergbsurfacefrom/
+
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
       Rmask = 0xff000000;
       Gmask = 0x00ff0000;

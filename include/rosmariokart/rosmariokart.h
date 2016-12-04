@@ -22,7 +22,12 @@ enum Item {
   ITEM_REDSHELL3       = 8,
   ITEM_STAR            = 9,
   ITEM_ROULETTE        = 10,
-  NITEMS               = 11,
+  NITEMS               = 11
+};
+enum Background {
+  BG_NONE              = 0,
+  BG_ITEMS             = 1,
+  NBG                  = 2
 };
 enum Curse {
   CURSE_NONE               = 0,
@@ -54,7 +59,7 @@ enum CameraStatus {
   CAMERA_OK             = 1,
   NO_CAMERA_AVAILABLE   = 2,
   CAMERA_TIMEOUT        = 3,
-  NCAMERA_STATUS         = 4
+  NCAMERA_STATUS        = 4
 };
 enum RobotStatus {
   ROBOT_NEVER_RECEIVED = 0,
