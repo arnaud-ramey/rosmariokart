@@ -27,7 +27,8 @@ enum Item {
 enum Background {
   BG_NONE              = 0,
   BG_ITEMS             = 1,
-  NBG                  = 2
+  BG_GO                = 2,
+  NBG                  = 3
 };
 enum Curse {
   CURSE_NONE               = 0,

@@ -176,7 +176,7 @@ public:
     if (_nplayers == 1) {
         player_w =_winw;
         player_h = _winh;
-      _players[0].item_tl_corner = Point2d(0, _winw - _item_w);
+      _players[0].item_tl_corner = Point2d(_winw - _item_w*1.1, 10);
       _players[0].player_tl_win = Point2d(0, 0);
 
     }
@@ -189,12 +189,10 @@ public:
           player_w =_winw/2;
           player_h = _winh;
 
-          _players[0].item_tl_corner = Point2d(_winw/2 - _item_w + 5 , 5);
-          _players[0].item_bg_tl = Point2d(_winw/2 - _item_w, 0);
+          _players[0].item_tl_corner = Point2d(_winw/2 - _item_w*1.1 , 10);
           _players[0].player_tl_win = Point2d(0, 0);
 
-          _players[1].item_tl_corner = Point2d(_winw - _item_w + 5, 5);
-          _players[1].item_bg_tl = Point2d(_winw - _item_w,0);
+          _players[1].item_tl_corner = Point2d(_winw - _item_w*1.1 , 10);
           _players[1].player_tl_win = Point2d(_winw/2, 0);
 
       }
@@ -202,12 +200,10 @@ public:
           player_w =_winw;
           player_h = _winh/2;
 
-          _players[0].item_tl_corner = Point2d(_winw - _item_w + 5, 5);
-          _players[0].item_bg_tl = Point2d(_winw - _item_w, 0);
+          _players[0].item_tl_corner = Point2d(_winw - _item_w*1.1, 10);
           _players[0].player_tl_win = Point2d(0, 0);
 
-          _players[1].item_tl_corner = Point2d(_winw - _item_w + 5 ,_winh/2 + 5 );
-          _players[1].item_bg_tl = Point2d(_winw - _item_w,_winh/2);
+          _players[1].item_tl_corner = Point2d(_winw - _item_w*1.1,_winh/2 + 10 );
           _players[1].player_tl_win = Point2d(0,_winh/2);
       }
 
@@ -218,21 +214,17 @@ public:
       player_w =_winw/2;
       player_h = _winh/2;
 
-      _players[0].item_tl_corner = Point2d(_winw/2 - _item_w + 5, 5);
-      _players[0].item_bg_tl = Point2d(_winw/2 - _item_w, 0);
+      _players[0].item_tl_corner = Point2d(_winw/2 - _item_w*1.1, 10);
       _players[0].player_tl_win = Point2d(0, 0);
 
-      _players[1].item_tl_corner = Point2d(_winw - _item_w + 5 , 5 );
-      _players[1].item_bg_tl = Point2d(_winw - _item_w,0);
+      _players[1].item_tl_corner = Point2d(_winw - _item_w*1.1, 10 );
       _players[1].player_tl_win = Point2d(_winw/2,0);
 
-      _players[2].item_tl_corner = Point2d(_winw/2 - _item_w + 5, _winh/2 +5);
-      _players[2].item_bg_tl = Point2d(_winw/2 - _item_w, _winh/2);
+      _players[2].item_tl_corner = Point2d(_winw/2 - _item_w*1.1, _winh/2 + 10);
       _players[2].player_tl_win = Point2d(0,_winh/2);
 
       if (_nplayers == 4)
-       _players[3].item_tl_corner = Point2d(_winw - _item_w + 5 ,_winh/2 + 5);
-       _players[3].item_bg_tl = Point2d(_winw - _item_w,_winh/2);
+       _players[3].item_tl_corner = Point2d(_winw - _item_w*1.1,_winh/2 + 10);
        _players[3].player_tl_win = Point2d(_winw/2,_winh/2);
 
     }
@@ -249,12 +241,12 @@ public:
         imgname = "white_sumo_black_bg.png";
       std::string fullfilename = _data_path + std::string("robots/") + imgname;
 
-      double avatar_w = std::min (player_w/2,player_h/2);
+      double avatar_w = 0.8 * std::min (player_w,player_h);
 
       p->_avatar.from_file(renderer, fullfilename, avatar_w);
 
-      p->curse_tl.x = p->item_tl_corner.x - _item_w;
-      p->curse_tl.y = p->item_tl_corner.y;
+      p->curse_tl.x = std::min(p->player_tl_win.x + 0.5*player_w - _item_w/2, p->item_tl_corner.x - _item_w*1.05) ;
+      p->curse_tl.y = p->item_tl_corner.y ;
 
     } // end for i
 
@@ -277,7 +269,7 @@ public:
       bool ok = true;
 
       // load Items Background
-      ok = ok && _bg_imgs[BG_ITEMS].from_file(renderer, _data_path + "items/Item_BG.png", item_size+10);
+      ok = ok && _bg_imgs[BG_ITEMS].from_file(renderer, _data_path + "items/Item_BG.png", item_size + 10);
 
       ok = ok && _item_imgs[ITEM_BOO].from_file(renderer, _data_path + "items/Boo.png", item_size);
       ok = ok && _item_imgs[ITEM_GOLDENMUSHROOM].from_file(renderer, _data_path + "items/GoldenMushroom.png", item_size);
@@ -315,7 +307,7 @@ public:
       ok = ok && _robot_status_imgs[ROBOT_NEVER_RECEIVED].from_file(renderer, _data_path + "warnings/robotWarning.png", item_size);
       ok = ok && _robot_status_imgs[ROBOT_TIMEOUT].from_file(renderer, _data_path + "warnings/robotWarning.png", item_size);
       // load lakitu statuses
-      int lakitu_width = std::min(_winw, _winh);
+      int lakitu_width = 0.4*std::min(_winw, _winh);
       _lakitu_center.x = _winw / 2;
       _lakitu_center.y = _winh / 2;
       _lakitu_status_imgs.resize(NLAKITU_STATUSES);
@@ -425,11 +417,25 @@ public:
   bool render() {
     DEBUG_PRINT("render()-%g s!\n", _race_timer.getTimeSeconds());
     SDL_RenderClear( renderer );
+
     bool ok = true;
 
     // draw warnings if needed
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
+
+
+    // draw colored background
+    if (i==0)       SDL_SetRenderDrawColor( renderer, 121, 28, 248, 255 );
+    else if (i==1)  SDL_SetRenderDrawColor( renderer, 255, 50, 50, 255 );
+    else if (i==2)  SDL_SetRenderDrawColor( renderer, 22, 124, 78, 255 );
+    else            SDL_SetRenderDrawColor( renderer, 233, 109, 20, 255 );
+    SDL_Rect rect;
+    rect.x = p->player_tl_win.x;
+    rect.y = p->player_tl_win.y;
+    rect.w = player_w;
+    rect.h = player_h;
+    SDL_RenderFillRect(renderer, &rect);
 
     // draw image camera if available
     if (p->has_rgb()){
@@ -438,6 +444,11 @@ public:
          ok = ok && p->_avatar.render(renderer, Point2d( p->player_tl_win.x + 0.25*player_w, p->player_tl_win.y + 0.25*player_h));
     }
 
+    // draw boundary lines between players
+    SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
+    SDL_RenderDrawRect(renderer,&rect);
+
+
     // draw joypad status
     if (p->joypad_status != JOYPAD_OK)
     ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_tl_corner);
@@ -445,6 +456,8 @@ public:
     else if (p->robot_status != ROBOT_OK)
     ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_tl_corner);
     } // end for i
+
+    SDL_SetRenderDrawColor( renderer, 150, 150, 255, 255 );
 
     // render avatars
     if (_game_status == GAME_STATUS_WAITING
@@ -467,7 +480,7 @@ public:
       // draw what needs to be drawn
       for (unsigned int i = 0; i < _nplayers; ++i) {
         Player* p = &(_players[i]);
-        ok = ok && _bg_imgs[BG_ITEMS].render(renderer, p->item_bg_tl); // Background
+        ok = ok && _bg_imgs[BG_ITEMS].render(renderer, Point2d(p->item_tl_corner.x-5,p->item_tl_corner.y-5)); // Item Background
         //ROS_WARN("Redraw player %i!", i);
         // do nothing if no joypad or robot
         if (p->joypad_status != JOYPAD_OK || p->robot_status != ROBOT_OK)
@@ -476,20 +489,19 @@ public:
         if (p->curse != CURSE_NONE)     ok = ok && _curse_imgs[(int) p->curse].render(renderer, p->curse_tl);
         if (p->item == ITEM_ROULETTE)   ok = ok && _item_imgs[random_item()].render(renderer, p->item_tl_corner);
         else if (p->item != ITEM_NONE)  ok = ok && _item_imgs[p->item].render(renderer, p->item_tl_corner);
-//        else { // (CURSE_NONE && ITEM_NONE)
-//          if (p->has_rgb())
-//            ok = ok && p->_rgb.render(renderer, p->item_tl_corner);
-//          else
-//            ok = ok && p->_avatar.render(renderer, p->item_tl_corner);
-//        }
+
+        int time = _race_duration + 1 - _race_timer.getTimeSeconds();
+        ok = ok && render_countdown(time, 0, 0, 0)
+            && _countdown_texture.render_center(renderer, Point2d(p->player_tl_win.x + player_w/5, p->player_tl_win.y+ player_h/6),0.4)
+            && render_countdown(time, 255, 10, 10)
+            && _countdown_texture.render_center(renderer, Point2d(p->player_tl_win.x + player_w/5+2, p->player_tl_win.y+ player_h/6+2),0.4);
+			// && _countdown_texture.render_center(renderer, Point2d(_winw/2,_winh/2),0.8);
       } // end for i
 
       if (_lakitu_status == LAKITU_LIGHT3) // show lakitu going upwards
         ok = ok && _lakitu.render(renderer);
 
-      int time = _race_duration + 1 - _race_timer.getTimeSeconds();
-      ok = ok && render_countdown(time, 255, 0, 0)
-          && _countdown_texture.render_center(renderer, Point2d(_winw/2, 75),1);
+
     } // end GAME_STATUS_RACE
 
     if (_game_status == GAME_STATUS_RACE_OVER) {
@@ -697,10 +709,11 @@ protected:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  //! \return true if render OK or already done
+  //!\return true if render OK or already done // This functionnality has been
+  //!\ remove in order to have double color timer (for visibility)
   bool render_countdown(const int time, int r, int g, int b) {
-    if (_last_renderer_countdown_time == time)
-      return true;
+    //~ if (_last_renderer_countdown_time == time) ;
+    //~ return true; 
     std::ostringstream time_str; time_str << time;
     _last_renderer_countdown_time = time;
     return _countdown_texture.loadFromRenderedText(renderer, _countdown_font, time_str.str(),
@@ -999,14 +1012,12 @@ protected:
       ROS_WARN("Texture::from_ros_image() failed!");
     }
 
-    // int scale_ratio = 1/(p->_rgb.get_resize_scale()); <--- Unused
-
     //update of the player player_tl_camview in order to center the video image
     if (player_w == p->_rgb._width){ // Image has been scaled to max width
 
          p->player_tl_camview.x = p->player_tl_win.x;
-
          int paddingy = player_h - p->_rgb._height;
+
          p->player_tl_camview.y = p->player_tl_win.y + paddingy/2;
 
     }else{ // Image has been scaled to max height
@@ -1019,19 +1030,17 @@ protected:
 
     //Also update of the player item_tl_corner and its size to fit the image
 
-    if (!p->item_size_updated) {
-        _item_w = p->_rgb._height/4;
-        load_item(_item_w);
+//    if (!p->item_size_updated) {
+//        _item_w = p->_rgb._height/4;
+//        load_item(_item_w);
 
-        p->item_tl_corner.x = p->player_tl_camview.x + p->_rgb._width -_item_w*1.2;
-        p->item_tl_corner.y = p->player_tl_camview.y;
-        p->item_bg_tl.x = p->item_tl_corner.x -5;
-        p->item_bg_tl.y = p->item_tl_corner.y -5;
-        p->curse_tl.x = p->item_tl_corner.x - 1.2*_item_w;
-        p->curse_tl.y = p->item_tl_corner.y;
+//        p->item_tl_corner.x = p->player_tl_camview.x + p->_rgb._width -_item_w*1.2;
+//        p->item_tl_corner.y = p->player_tl_camview.y;
+//        p->curse_tl.x = p->item_tl_corner.x - 1.2*_item_w;
+//        p->curse_tl.y = p->item_tl_corner.y;
 
-        p->item_size_updated=true; // Do the update only onte time by players.
-    }
+//        p->item_size_updated=true; // Do the update only onte time by players.
+//    }
 
 
 
@@ -1076,7 +1085,7 @@ protected:
     }
 
     std::string name;
-    Point2d item_tl_corner,item_bg_tl, curse_tl, player_tl_win, player_tl_camview;
+    Point2d item_tl_corner, curse_tl, player_tl_win, player_tl_camview;
 
     ros::Subscriber joy_sub ;
     image_transport::Subscriber it_cam_sub, rgb_sub;  // Ajout Eric
