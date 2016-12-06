@@ -65,12 +65,7 @@ public:
     _nh_private.param("curse_rocket_start_timeout", _curse_timeout[CURSE_ROCKET_START], 5.);
     _nh_private.param("curse_star_timeout", _curse_timeout[CURSE_STAR], 3.130);
     _nh_private.param("curse_timebomb_hit_timeout", _curse_timeout[CURSE_TIMEBOMB_HIT], 3.);
-    // joy params
-    _nh_private.param("axis_180turn", _axis_180turn, 4);
-    _nh_private.param("axis_90turn", _axis_90turn, 3);
-    _nh_private.param("axis_angular", _axis_angular, 2);
-    _nh_private.param("axis_linear", _axis_linear, 1);
-    _nh_private.param("button_item", _button_item, 3);
+
     // player params
     Player p1, p2, p3, p4;
     _nh_private.param("player1_name", p1.name, std::string("player1"));
@@ -88,10 +83,15 @@ public:
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
-      // params
-      _nh_public.param(p->name + "/scale_angular", p->scale_angular, 1.0);
-      _nh_public.param(p->name + "/scale_linear", p->scale_linear, 1.0);
-   
+       // joy params
+      _nh_private.param(p->name + "/axis_angular", _axis_angular, 0);
+      _nh_private.param(p->name + "/axis_linear", _axis_linear, 1);
+      _nh_private.param(p->name + "/axis_90turn", _axis_90turn, 4);
+      _nh_private.param(p->name + "/axis_180turn", _axis_180turn, 5);
+      _nh_private.param(p->name + "/button_item", _button_item, 7);
+      _nh_private.param(p->name + "/scale_angular", p->scale_angular, 1.0);
+      _nh_private.param(p->name + "/scale_linear", p->scale_linear, 1.0);
+
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
       p->joy_sub = _nh_public.subscribe<sensor_msgs::Joy>(p->name + "/joy", 1, boost::bind(&Game::joy_cb, this, _1, i));
@@ -167,17 +167,14 @@ public:
     _last_renderer_countdown_time = -1;
 
     // configure GUI
-    // Nota: item_tl_corner are updated later in rgb_cb()
-    // depending of the size of the video image.
-
     _item_w = std::min(_winw/4, _winh/4);
 
 
     if (_nplayers == 1) {
         player_w =_winw;
         player_h = _winh;
-      _players[0].item_tl_corner = Point2d(_winw - _item_w*1.1, 10);
-      _players[0].player_tl_win = Point2d(0, 0);
+        _players[0].item_tl_corner = Point2d(_winw - _item_w*1.1, 10);
+        _players[0].player_tl_win = Point2d(0, 0);
 
     }
     else if (_nplayers == 2) {
@@ -513,9 +510,24 @@ public:
   }
 
 protected:
+
+  //////////////////////////////////////////////////////////////////////////////
+  // TODO
+  //! check if each player has a subscriber for camera
+  //! \return true if everything OK, false otherwise.
+  //! If false, the background image corresponding to the robots needs to be displayed
+
+
+
+
+
+
+
   //////////////////////////////////////////////////////////////////////////////
 
-  //! check if each player has a publisher for joypad and a subscrier for cmd_vel
+
+
+  //! check if each player has a publisher for joypad and a subscriber for cmd_vel
   //! \return true if everything OK, false otherwise.
   //! If false, the image needs to be displayed
   bool check_joypads_robots() {
@@ -532,7 +544,7 @@ protected:
       }
       // sanity checks: check robot status
       if (p->cmd_vel_pub.getNumSubscribers())
-        p->robot_status = ROBOT_OK;
+         p->robot_status = ROBOT_OK;
       else {
         ROS_WARN("Player %i: ROBOT_TIMEOUT", player_idx);
         p->robot_status = ROBOT_TIMEOUT;
@@ -994,6 +1006,7 @@ protected:
     // if no command was sent till here: move robot with directions of axes
     if (command_sent)
       return;
+
     set_speed(player_idx,
               joy->axes[_axis_linear] * p->scale_linear,
               joy->axes[_axis_angular] * p->scale_angular);
@@ -1088,7 +1101,7 @@ protected:
     Point2d item_tl_corner, curse_tl, player_tl_win, player_tl_camview;
 
     ros::Subscriber joy_sub ;
-    image_transport::Subscriber it_cam_sub, rgb_sub;  // Ajout Eric
+    image_transport::Subscriber rgb_sub;
 
     ros::Publisher cmd_vel_pub, sharp_turn_pub, animation_pub;
     Item item;

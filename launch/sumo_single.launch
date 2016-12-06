@@ -1,0 +1,34 @@
+<launch>
+<arg name="p1" value="sumo1"/>
+
+<!-- rosmariokart -->
+<node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
+      output="screen" required="true" >
+
+  <!-- Game parameters -->
+  <param name="winw" value="400"/>
+  <param name="winh" value="400"/>
+  <param name="race_duration" value="300"/> 
+
+  <!-- Player 1 parameters -->
+  <param name="player1_name" value="$(arg p1)"/>
+  <param name="$(arg p1)/axis_linear" value="2"/>
+  <param name="$(arg p1)/axis_angular" value="0"/>
+  <param name="$(arg p1)/axis_90turn" value="4"/>
+  <param name="$(arg p1)/axis_180turn" value="5"/>
+  <param name="$(arg p1)/button_item" value="7"/>
+  <param name="$(arg p1)/scale_angular" value="20.0"/>
+  <param name="$(arg p1)/scale_linear" value="50.0"/>
+
+</node>
+
+<remap from="/$(arg p1)/camera/image_raw" to="/$(arg p1)/image"/>
+
+<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
+  <arg name="robot" value="$(arg p1)" />
+  <arg name="device" value="/dev/input/js0" />
+  <arg name="ip" value="192.168.2.1" />
+</include>
+
+
+</launch>
