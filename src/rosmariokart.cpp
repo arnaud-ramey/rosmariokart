@@ -84,11 +84,11 @@ public:
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
        // joy params
-      _nh_private.param(p->name + "/axis_angular", _axis_angular, 0);
-      _nh_private.param(p->name + "/axis_linear", _axis_linear, 1);
-      _nh_private.param(p->name + "/axis_90turn", _axis_90turn, 4);
-      _nh_private.param(p->name + "/axis_180turn", _axis_180turn, 5);
-      _nh_private.param(p->name + "/button_item", _button_item, 7);
+      _nh_private.param(p->name + "/axis_angular", p->_axis_angular, 0);
+      _nh_private.param(p->name + "/axis_linear", p->_axis_linear, 1);
+      _nh_private.param(p->name + "/axis_90turn", p->_axis_90turn, 4);
+      _nh_private.param(p->name + "/axis_180turn", p->_axis_180turn, 5);
+      _nh_private.param(p->name + "/button_item", p->_button_item, 7);
       _nh_private.param(p->name + "/scale_angular", p->scale_angular, 1.0);
       _nh_private.param(p->name + "/scale_linear", p->scale_linear, 1.0);
 
@@ -969,15 +969,15 @@ protected:
       return;
     Player* p = &(_players[player_idx]);
     int naxes = joy->axes.size(), nbuttons = joy->buttons.size();
-    if (naxes < _axis_90turn
-        || naxes < _axis_180turn
-        || naxes < _axis_linear
-        || naxes < _axis_angular) {
+    if (naxes < p->_axis_90turn
+        || naxes < p->_axis_180turn
+        || naxes < p->_axis_linear
+        || naxes < p->_axis_angular) {
       ROS_WARN_THROTTLE(1, "Only %i axes on joypad #%i!", naxes, player_idx);
       p->joypad_status = JOYPAD_BAD_AXES_NB;
       return;
     }
-    if (nbuttons < _button_item) {
+    if (nbuttons < p->_button_item) {
       ROS_WARN_THROTTLE(1, "Only %i buttons on joypad #%i!", nbuttons, player_idx);
       p->joypad_status = JOYPAD_BAD_BUTTONS_NB;
       return;
@@ -987,14 +987,14 @@ protected:
     p->last_joy_updated.reset();
     // check sharp turns at 90° or 180°
     double angle = 0;
-    if (fabs(joy->axes[_axis_90turn]) > 0.9)
-      angle = (joy->axes[_axis_90turn] < 0 ? M_PI_2 : -M_PI_2);
-    if (fabs(joy->axes[_axis_180turn]) > 0.9)
-      angle = (joy->axes[_axis_180turn] < 0 ? 2 * M_PI : -M_PI);
+    if (fabs(joy->axes[p->_axis_90turn]) > 0.9)
+      angle = (joy->axes[p->_axis_90turn] < 0 ? M_PI_2 : -M_PI_2);
+    if (fabs(joy->axes[p->_axis_180turn]) > 0.9)
+      angle = (joy->axes[p->_axis_180turn] < 0 ? 2 * M_PI : -M_PI);
     bool command_sent = sharp_turn_button_cb(angle, player_idx);
 
     // check item button
-    if (joy->buttons[_button_item])
+    if (joy->buttons[p->_button_item])
       item_button_cb(player_idx);
     else {
       p->item_button_before = false;
@@ -1008,8 +1008,8 @@ protected:
       return;
 
     set_speed(player_idx,
-              joy->axes[_axis_linear] * p->scale_linear,
-              joy->axes[_axis_angular] * p->scale_angular);
+              joy->axes[p->_axis_linear] * p->scale_linear,
+              joy->axes[p->_axis_angular] * p->scale_angular);
   } // end joy_cb();
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1107,6 +1107,7 @@ protected:
     Item item;
     Curse curse;
     JoypadStatus joypad_status;
+    int _axis_linear, _axis_angular, _axis_90turn, _axis_180turn, _button_item;
     RobotStatus robot_status;
     CameraStatus camera_status;
     bool sharp_turn_before, item_button_before, item_size_updated;
@@ -1124,7 +1125,6 @@ protected:
   std::vector<Player> _players;
   GameStatus _game_status;
   double _min_time_roulette, _timebomb_likelihood;
-  int _axis_linear, _axis_angular, _axis_90turn, _axis_180turn, _button_item;
   Timer _last_roulette_sound_play, _timebomb, _last_roulette, _countdown, _race_timer;
   Timer::Time _race_duration;
   bool _last_lap_played;
