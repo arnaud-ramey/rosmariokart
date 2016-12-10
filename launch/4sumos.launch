@@ -21,10 +21,8 @@
   <param name="button_item" value="3"/>
   <param name="player1_name" value="$(arg p1)"/>
   <param name="player2_name" value="$(arg p2)"/>
-<!--
   <param name="player3_name" value="$(arg p3)"/>
   <param name="player4_name" value="$(arg p4)"/>
--->
 </node>
 
 <!-- drivers -->
