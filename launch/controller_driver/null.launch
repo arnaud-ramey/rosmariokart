@@ -1,0 +1,5 @@
+<launch>
+<arg name="robot" 		default="rossumo" />
+<arg name="device" 		default="/dev/input/js0" />
+
+</launch>

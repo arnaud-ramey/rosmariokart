@@ -1,0 +1,97 @@
+<launch>
+<!-- Quick setting to test the game with one sumo_robot in local -->	
+<arg name="solo" 		value="1"/>
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->	
+<!-- 					Players Quick setting						-->	
+<!-- Avalaible Robots		:  sumo / mip							-->
+<!-- Avalaible Controlers	:  wiimote / doublewii / tesun			-->								
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->	
+ 
+<arg name="r1_type" value="sumo"/> <arg name="ctrl1_type" value="wii"/> 
+<arg name="r2_type" value="sumo"/> <arg name="ctrl2_type" value="tesun"/>
+<arg name="r3_type" value="sumo"/> <arg name="ctrl3_type" value="tesun"/>
+<arg name="r4_type" value="sumo"/> <arg name="ctrl4_type" value="sog"/> 	
+<arg name="r5_type" value="sumo"/> <arg name="ctrl5_type" value="tesun"/> 	
+<arg name="r6_type" value="sumo"/> <arg name="ctrl6_type" value="tesun"/> 	
+<arg name="r7_type" value="sumo"/> <arg name="ctrl7_type" value="tesun"/> 	
+	
+	
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->	
+<!-- 			rosmariokart main node 								-->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->	
+<node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
+      output="screen" required="true" >
+ 
+  <!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->	 
+  <!-- 					Players Declarations 					-->
+  <!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--> 
+	
+		<param name="player1_name" value="p1_$(arg r1_type)" />
+		<param name="player2_name" value="p2_$(arg r2_type)" />
+		<param name="player3_name" value="p3_$(arg r3_type)" />
+<!--
+		<param name="player4_name" value="p4_$(arg r4_type)" />
+		<param name="player5_name" value="p4_$(arg r5_type)" />
+		<param name="player6_name" value="p4_$(arg r6_type)" />
+		<param name="player7_name" value="p4_$(arg r7_type)" />
+-->
+
+
+  <!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->	 
+  <!-- 					Game parameters 						-->
+   <!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+  <param name="winw" 				value="600"/> 	<!--in pixels 	-->
+  <param name="winh" 				value="300"/>	<!--in pixels 	-->
+  <param name="race_duration"		value="125"/>  	<!--in seconds 	-->
+  <param name="number_of_cols"		value="3"/>  	<!--for the GUI	-->		
+  	      
+</node>	
+			
+
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- 		Player1 controller driver and special parameters		-->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+  <include file="$(find rosmariokart)/launch/robot_driver/$(arg r1_type)_driver.launch">
+		<arg name="robot" 	value="p1_$(arg r1_type)" />
+		<arg unless ="$(arg solo)" 	name="ip" 	value="192.168.1.21" />	
+  </include>
+	
+  <include file="$(find rosmariokart)/launch/controller_driver/$(arg ctrl1_type).launch">  
+		<arg name="robot" 	value="p1_$(arg r1_type)" />
+  </include>
+	
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- 		Player2 controller driver and special parameters		-->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+  <include file="$(find rosmariokart)/launch/robot_driver/$(arg r2_type)_driver.launch">
+		<arg name="robot" 	value="p2_$(arg r2_type)" />
+		<arg name="ip" 		value="192.168.1.22" />
+  </include>
+	
+  <include file="$(find rosmariokart)/launch/controller_driver/$(arg ctrl2_type).launch">  
+		<arg name="robot" 	value="p2_$(arg r2_type)" />
+		<arg name="device" 	value="/dev/input/js0" />
+  </include>	  
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!-- 		Player3 controller driver and special parameters		-->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+  <include file="$(find rosmariokart)/launch/robot_driver/$(arg r3_type)_driver.launch">
+		<arg name="robot" 	value="p3_$(arg r3_type)" />
+		<arg name="ip" 		value="192.168.1.23" />
+  </include>
+	
+  <include file="$(find rosmariokart)/launch/controller_driver/$(arg ctrl3_type).launch">  
+		<arg name="robot" 	value="p3_$(arg r3_type)" />
+		<arg name="device" 	value="/dev/input/js1" />
+  </include>	  
+
+
+</launch>	
+	

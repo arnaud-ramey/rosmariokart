@@ -1,0 +1,52 @@
+<launch>
+
+<arg name="robot" 		default="ros_robot" />
+
+<!-- default setting for controller-->
+<arg name="axis_linear" 		default="0"/> 
+<arg name="axis_angular" 		default="1"/> 
+<arg name="button_90turn" 		default="8"/>  
+<arg name="button_180turn" 		default="6"/> 
+<arg name="button_item" 		default="3"/>  
+<arg name="scale_angular" 		default="5.0"/>
+<arg name="scale_linear" 		default="10.0"/>
+<arg name="button_deadman" 		default="1"/> 
+<arg name="offset_linear" 		default="5.0"/>
+
+
+<group ns="$(arg robot)">
+ 	<param name="axis_linear" 		value="$(arg axis_linear)"/> 
+	<param name="axis_angular" 		value="$(arg axis_angular)"/> 
+	<param name="button_90turn" 	value="$(arg button_90turn)"/>  
+	<param name="button_180turn" 	value="$(arg button_180turn)"/> 
+	<param name="button_item" 		value="$(arg button_item)"/>  
+	<param name="scale_angular" 	value="$(arg scale_angular)"/>
+	<param name="scale_linear" 		value="$(arg scale_linear)"/>
+	<param name="deadman" 			value="$(arg button_deadman)"/> 
+	<param name="offset_linear" 	value="$(arg offset_linear)"/>
+  
+<node pkg="wiimote" type="wiimote_node.py" name="wiimote_node" 
+			   respawn="true" output="screen"/>
+        
+</group>
+
+</launch>
+
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!--	HINT:				WIIMOTE MAPPING 						-->
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+<!--
+						Position   Button Name
+						0         1
+						1         2
+						2         A
+						3         B (toggle button on back of device)
+						4         Plus
+						5         Minus
+						6         Rocker Left
+						7         Rocker Right
+						8         Rocker Up
+						9         Rocker Down
+						10        HOME
+-->

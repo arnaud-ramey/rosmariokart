@@ -1,0 +1,37 @@
+<launch>
+
+
+<arg name="robot" 		default="rossumo" />
+<arg name="device" 		default="/dev/input/js0" />
+
+<!-- default setting for controller-->
+<arg name="axis_linear" 		default="1"/> 
+<arg name="axis_angular" 		default="0"/> 
+<arg name="button_90turn" 		default="5"/>  
+<arg name="button_180turn" 		default="4"/> 
+<arg name="button_item" 		default="7"/>  
+<arg name="scale_angular" 		default="20.0"/>
+<arg name="scale_linear" 		default="30.0"/>
+	
+
+<group ns="$(arg robot)">
+	
+	<param name="axis_linear" 		value="$(arg axis_linear)"/> 
+	<param name="axis_angular" 		value="$(arg axis_angular)"/> 
+	<param name="button_90turn" 	value="$(arg button_90turn)"/>  
+	<param name="button_180turn" 	value="$(arg button_180turn)"/> 
+	<param name="button_item" 		value="$(arg button_item)"/>  
+	<param name="scale_angular" 	value="$(arg scale_angular)"/>
+	<param name="scale_linear" 		value="$(arg scale_linear)"/>
+
+	<node pkg="joy" type="joy_node" name="joy" output="screen" >
+			<param name="dev" value="$(arg device)" />
+			<param name="autorepeat_rate" value="25" />
+			
+
+	
+	</node>
+	        
+</group>
+</launch>
+
