@@ -2,8 +2,10 @@
   \file        rosmariokart.cpp
   \author      Arnaud Ramey <arnaud.a.ramey@gmail.com>
                 -- Robotics Lab, University Carlos III of Madrid
-  \date        2016/03/07
-
+  \contributor Eric MOLINE <molineer@gmail.com>
+                -- PRISME University of Orleans
+  \date        first release 2016/03/07
+  \date        last release  2016/12/09
 ________________________________________________________________________________
 
 This program is free software: you can redistribute it and/or modify
@@ -27,6 +29,7 @@ ________________________________________________________________________________
 
 #include "rosmariokart/rosmariokart.h"
 #include "rosmariokart/sdl_utils.h"
+
 // third parties
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
@@ -52,8 +55,11 @@ public:
     _nh_private.param("min_time_roulette", _min_time_roulette, 10.);
     _nh_private.param("timebomb_likelihood", _timebomb_likelihood, 0.03); // 3%
     _nh_private.param("race_duration", _race_duration, 79.); // seconds = 1 min 19
+    _nh_private.param("number_of_cols", _max_col, 3);
+
     // item params
     _curse_timeout.resize(NCURSES, 10);
+
     _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 3.);
     _nh_private.param("curse_dud_start_timeout", _curse_timeout[CURSE_DUD_START], 3.);
     _nh_private.param("curse_goldenmushroom_timeout", _curse_timeout[CURSE_GOLDENMUSHROOM], 3.);
@@ -66,31 +72,39 @@ public:
     _nh_private.param("curse_star_timeout", _curse_timeout[CURSE_STAR], 3.130);
     _nh_private.param("curse_timebomb_hit_timeout", _curse_timeout[CURSE_TIMEBOMB_HIT], 3.);
 
-    // player params
-    Player p1, p2, p3, p4;
-    _nh_private.param("player1_name", p1.name, std::string("player1"));
-    _players.push_back(p1);
-    _nh_private.param("player2_name", p2.name, std::string(""));
-    if (p2.name.length() > 0)
-      _players.push_back(p2);
-    _nh_private.param("player3_name", p3.name, std::string(""));
-    if (p3.name.length() > 0)
-      _players.push_back(p3);
-    _nh_private.param("player4_name", p4.name, std::string(""));
-    if (p4.name.length() > 0)
-      _players.push_back(p4);
+
+    //Initiate the list of players.... This is limited by the max allowed (see game parameters)
+    int i=0;
+    while (true) {
+      Player p;
+      std::ostringstream oss;
+      oss << i+1;
+      std::string text = "player"+oss.str()+"_name";
+
+      _nh_private.param( text, p.name, std::string(""));
+      if (p.name.empty())
+          break;
+      _players.push_back(p);
+      i++;
+    }//end while add players
+
     _nplayers = _players.size();
+     ROS_WARN( "Number of player %i \n", _nplayers);
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
        // joy params
-      _nh_private.param(p->name + "/axis_angular", p->_axis_angular, 0);
-      _nh_private.param(p->name + "/axis_linear", p->_axis_linear, 1);
-      _nh_private.param(p->name + "/axis_90turn", p->_axis_90turn, 4);
-      _nh_private.param(p->name + "/axis_180turn", p->_axis_180turn, 5);
-      _nh_private.param(p->name + "/button_item", p->_button_item, 7);
-      _nh_private.param(p->name + "/scale_angular", p->scale_angular, 1.0);
-      _nh_private.param(p->name + "/scale_linear", p->scale_linear, 1.0);
+      _nh_public.param(p->name + "/axis_angular", p->_axis_angular, -1);
+      _nh_public.param(p->name + "/axis_linear", p->_axis_linear, -1);
+      _nh_public.param(p->name + "/button_90turn", p->_button_90turn, -1);
+      _nh_public.param(p->name + "/button_180turn", p->_button_180turn, -1);
+      _nh_public.param(p->name + "/button_item", p->_button_item, -1);
+
+      _nh_public.param(p->name + "/scale_angular", p->scale_angular, 1.0);
+      _nh_public.param(p->name + "/scale_linear", p->scale_linear, 1.0);
+
+      _nh_public.param(p->name + "/button_deadman", p->_button_deadman, -1);
+      _nh_public.param(p->name + "/offset_linear", p->_offset_linear, -1);
 
       // create subscribers - pass i
       // http://ros-users.122217.n3.nabble.com/How-to-identify-the-subscriber-or-the-topic-name-related-to-a-callback-td2391327.html
@@ -100,6 +114,7 @@ public:
       // create publishers
       p->cmd_vel_pub  = _nh_public.advertise<geometry_msgs::Twist>
           (p->name + "/cmd_vel", 1);
+
       p->animation_pub  = _nh_public.advertise<std_msgs::String>
           (p->name + "/animation", 1);
       p->sharp_turn_pub = _nh_public.advertise<std_msgs::Float32>
@@ -166,65 +181,52 @@ public:
     }
     _last_renderer_countdown_time = -1;
 
-    // configure GUI
-    _item_w = std::min(_winw/4, _winh/4);
+    // configure GUI depending on the numbers of player and of the number of col
+    int n_col=_max_col;
+    int n_line = ceilf(1.*_nplayers/_max_col);
+    //ROS_WARN( "players: %i and max_col % i and line %i\n", _nplayers, _max_col, n_line);
+
+    if (n_col > (int)_nplayers) n_col = (int)_nplayers;
+
+    ROS_WARN( "Number of row and col : %i x % i \n", n_line, n_col);
+    ROS_WARN( "players: %i and max_col % i and line %i\n", _nplayers, n_col, n_line);
+//    // check if all the lines are needed.
+//    bool end = false;
+//    while (!end){
+//        if ((int)_nplayers >  (n_line-1)*n_col) end=true;
+//        else n_line--;
+//    }
 
 
-    if (_nplayers == 1) {
-        player_w =_winw;
-        player_h = _winh;
-        _players[0].item_tl_corner = Point2d(_winw - _item_w*1.1, 10);
-        _players[0].player_tl_win = Point2d(0, 0);
+    _item_w = std::min(_winw/(4*n_col), _winh/(4*n_line));
 
+
+
+    int player_tlx_ref;
+
+    int p = 0; // players ind.
+
+    player_w = _winw/n_col;
+    player_h = _winh/n_line;
+
+    for (int n_row = 0; n_row < n_line ;n_row++){
+        int j = 0;
+        while ( (p <= (int)_nplayers)&&(player_tlx_ref < _winw) ){
+
+            _players[p].player_tl_win   = Point2d( j*player_w, n_row*player_h );
+            _players[p].item_tl_corner  = Point2d( j*player_w - _item_w*1.1, n_row*player_h + 10 );
+
+             player_tlx_ref = _players[p].player_tl_win.x + player_w;
+             j++;p++;
+        }
+        player_tlx_ref = 0;
     }
-    else if (_nplayers == 2) {
-     // Test if image have to be splitted in Right-Left or Up-Down
-      int _screen_main_direction = std::max(_winw,_winh);
 
-      if (_screen_main_direction == _winw){ //Split main screnn in Right_Left
 
-          player_w =_winw/2;
-          player_h = _winh;
 
-          _players[0].item_tl_corner = Point2d(_winw/2 - _item_w*1.1 , 10);
-          _players[0].player_tl_win = Point2d(0, 0);
 
-          _players[1].item_tl_corner = Point2d(_winw - _item_w*1.1 , 10);
-          _players[1].player_tl_win = Point2d(_winw/2, 0);
 
-      }
-      else{ //Split main screnn in Up_Down
-          player_w =_winw;
-          player_h = _winh/2;
 
-          _players[0].item_tl_corner = Point2d(_winw - _item_w*1.1, 10);
-          _players[0].player_tl_win = Point2d(0, 0);
-
-          _players[1].item_tl_corner = Point2d(_winw - _item_w*1.1,_winh/2 + 10 );
-          _players[1].player_tl_win = Point2d(0,_winh/2);
-      }
-
-    }
-    else if (_nplayers == 3 || _nplayers == 4) {
-      _item_w = std::min(_winw / 6, _winh / 6);
-
-      player_w =_winw/2;
-      player_h = _winh/2;
-
-      _players[0].item_tl_corner = Point2d(_winw/2 - _item_w*1.1, 10);
-      _players[0].player_tl_win = Point2d(0, 0);
-
-      _players[1].item_tl_corner = Point2d(_winw - _item_w*1.1, 10 );
-      _players[1].player_tl_win = Point2d(_winw/2,0);
-
-      _players[2].item_tl_corner = Point2d(_winw/2 - _item_w*1.1, _winh/2 + 10);
-      _players[2].player_tl_win = Point2d(0,_winh/2);
-
-      if (_nplayers == 4)
-       _players[3].item_tl_corner = Point2d(_winw - _item_w*1.1,_winh/2 + 10);
-       _players[3].player_tl_win = Point2d(_winw/2,_winh/2);
-
-    }
     // put robot background
 
     for (unsigned int i = 0; i < _nplayers; ++i) {
@@ -232,7 +234,7 @@ public:
       std::string imgname = "random_robot.png";
       if (p->name.find("mip") != std::string::npos)
         imgname = "white_mip_black_bg.png";
-      else if (p->name.find("robot_") != std::string::npos)
+      else if (p->name.find("stage") != std::string::npos)
         imgname = "stage_black_bg.png";
       else if (p->name.find("sumo") != std::string::npos)
         imgname = "white_sumo_black_bg.png";
@@ -421,18 +423,17 @@ public:
     for (unsigned int i = 0; i < _nplayers; ++i) {
       Player* p = &(_players[i]);
 
-
-    // draw colored background
-    if (i==0)       SDL_SetRenderDrawColor( renderer, 121, 28, 248, 255 );
-    else if (i==1)  SDL_SetRenderDrawColor( renderer, 255, 50, 50, 255 );
-    else if (i==2)  SDL_SetRenderDrawColor( renderer, 22, 124, 78, 255 );
-    else            SDL_SetRenderDrawColor( renderer, 233, 109, 20, 255 );
-    SDL_Rect rect;
-    rect.x = p->player_tl_win.x;
-    rect.y = p->player_tl_win.y;
-    rect.w = player_w;
-    rect.h = player_h;
-    SDL_RenderFillRect(renderer, &rect);
+//    // draw colored background
+//    if (i==0)       SDL_SetRenderDrawColor( renderer, 121, 28, 248, 255 );
+//    else if (i==1)  SDL_SetRenderDrawColor( renderer, 255, 50, 50, 255 );
+//    else if (i==2)  SDL_SetRenderDrawColor( renderer, 22, 124, 78, 255 );
+//    else            SDL_SetRenderDrawColor( renderer, 233, 109, 20, 255 );
+//    SDL_Rect rect;
+//    rect.x = p->player_tl_win.x;
+//    rect.y = p->player_tl_win.y;
+//    rect.w = player_w;
+//    rect.h = player_h;
+//    SDL_RenderFillRect(renderer, &rect);
 
     // draw image camera if available
     if (p->has_rgb()){
@@ -442,16 +443,16 @@ public:
     }
 
     // draw boundary lines between players
-    SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
-    SDL_RenderDrawRect(renderer,&rect);
+//    SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
+//    SDL_RenderDrawRect(renderer,&rect);
 
 
     // draw joypad status
     if (p->joypad_status != JOYPAD_OK)
-    ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->item_tl_corner);
+    ok = ok && _joypad_status_imgs[(int) p->joypad_status].render(renderer, p->player_tl_win);
     // draw robot status
     else if (p->robot_status != ROBOT_OK)
-    ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->item_tl_corner);
+    ok = ok && _robot_status_imgs[p->robot_status ].render(renderer, p->player_tl_win);
     } // end for i
 
     SDL_SetRenderDrawColor( renderer, 150, 150, 255, 255 );
@@ -511,26 +512,11 @@ public:
 
 protected:
 
-  //////////////////////////////////////////////////////////////////////////////
-  // TODO
-  //! check if each player has a subscriber for camera
-  //! \return true if everything OK, false otherwise.
-  //! If false, the background image corresponding to the robots needs to be displayed
-
-
-
-
-
-
-
-  //////////////////////////////////////////////////////////////////////////////
-
-
 
   //! check if each player has a publisher for joypad and a subscriber for cmd_vel
   //! \return true if everything OK, false otherwise.
   //! If false, the image needs to be displayed
-  bool check_joypads_robots() {
+  bool check_joypads_and_robots() {
     bool checkok = true;
     for (unsigned int player_idx = 0; player_idx < _nplayers; ++player_idx) {
       Player* p = &(_players[player_idx]);
@@ -544,20 +530,20 @@ protected:
       }
       // sanity checks: check robot status
       if (p->cmd_vel_pub.getNumSubscribers())
-         p->robot_status = ROBOT_OK;
+          p->robot_status = ROBOT_OK;
       else {
-        ROS_WARN("Player %i: ROBOT_TIMEOUT", player_idx);
-        p->robot_status = ROBOT_TIMEOUT;
-        checkok = false;
-      }
+            ROS_WARN("Player %i: ROBOT_TIMEOUT", player_idx);
+            p->robot_status = ROBOT_TIMEOUT;
+            checkok = false;
+           }
     } // end for player_idx
     return checkok;
-  } // end check_joypads_robots()
+  } // end check_joypads_and_robots()
 
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_waiting() {
-    bool checkok = check_joypads_robots();
+    bool checkok = check_joypads_and_robots();
     // check state changes
     if (checkok) { // start countdown
       DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN\n");
@@ -574,7 +560,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_countdown() {
-    check_joypads_robots();
+    check_joypads_and_robots();
     double time = _countdown.getTimeSeconds();
     // check state changes
     if (time >= 3 + 2.40 && _lakitu_status == LAKITU_LIGHT2) { // start race
@@ -635,7 +621,7 @@ protected:
     }
 
     // check joypads
-    if (!check_joypads_robots())
+    if (!check_joypads_and_robots())
       return true;
 
     // check items
@@ -685,7 +671,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_race_over() {
-    check_joypads_robots();
+    check_joypads_and_robots();
     int x = _lakitu_center.x, y = _lakitu_center.y;
     double time = _countdown.getTimeSeconds();
     if (time <= 3) { // get lakitu down
@@ -968,16 +954,23 @@ protected:
     if (player_idx >= _nplayers) // sanity check
       return;
     Player* p = &(_players[player_idx]);
+
     int naxes = joy->axes.size(), nbuttons = joy->buttons.size();
-    if (naxes < p->_axis_90turn
-        || naxes < p->_axis_180turn
-        || naxes < p->_axis_linear
-        || naxes < p->_axis_angular) {
+
+    // Check if the controller is a Wiimote type one i.e IMU control Use of a button deadman
+    bool isWii = (p->_button_deadman >= 0);
+    bool deadman_ok = true;
+
+
+    if (  naxes < p->_axis_linear  || naxes < p->_axis_angular ) {
       ROS_WARN_THROTTLE(1, "Only %i axes on joypad #%i!", naxes, player_idx);
       p->joypad_status = JOYPAD_BAD_AXES_NB;
       return;
     }
-    if (nbuttons < p->_button_item) {
+
+    if (nbuttons < p->_button_item
+     || nbuttons < p->_button_90turn
+     || nbuttons < p->_button_180turn){
       ROS_WARN_THROTTLE(1, "Only %i buttons on joypad #%i!", nbuttons, player_idx);
       p->joypad_status = JOYPAD_BAD_BUTTONS_NB;
       return;
@@ -987,10 +980,11 @@ protected:
     p->last_joy_updated.reset();
     // check sharp turns at 90° or 180°
     double angle = 0;
-    if (fabs(joy->axes[p->_axis_90turn]) > 0.9)
-      angle = (joy->axes[p->_axis_90turn] < 0 ? M_PI_2 : -M_PI_2);
-    if (fabs(joy->axes[p->_axis_180turn]) > 0.9)
-      angle = (joy->axes[p->_axis_180turn] < 0 ? 2 * M_PI : -M_PI);
+    if (fabs(joy->buttons[p->_button_90turn]) > 0.9)
+      angle = (joy->buttons[p->_button_90turn] < 0 ? M_PI_2 : -M_PI_2);
+    if (fabs(joy->buttons[p->_button_180turn]) > 0.9)
+      angle = (joy->buttons[p->_button_180turn] < 0 ? 2 * M_PI : -M_PI);
+
     bool command_sent = sharp_turn_button_cb(angle, player_idx);
 
     // check item button
@@ -1007,9 +1001,31 @@ protected:
     if (command_sent)
       return;
 
-    set_speed(player_idx,
-              joy->axes[p->_axis_linear] * p->scale_linear,
-              joy->axes[p->_axis_angular] * p->scale_angular);
+    if (isWii){
+
+    }
+
+    if (isWii){
+        //Check if the deadman buttons is pressed before sending command from IMU
+        deadman_ok = (nbuttons > p->_button_deadman && joy->buttons[p->_button_deadman]);
+        if (!deadman_ok) {
+                          ROS_INFO_THROTTLE(10, "Dead man button %i is not pressed, sending a 0 speed order.", p->_button_deadman);
+                          geometry_msgs::Twist vel;
+                          set_speed(player_idx,0,0);
+                          p->joypad_status = JOYPAD_OK;
+                          p->last_joy_updated.reset();
+                          return;
+         }
+        // otherwise all is good !
+        set_speed(player_idx,
+                 (joy->axes[p->_axis_linear] + p->_offset_linear)* p->scale_linear,
+                 joy->axes[p->_axis_angular] * p->scale_angular);
+    }else{
+        set_speed(player_idx,
+                 joy->axes[p->_axis_linear] * p->scale_linear,
+                 joy->axes[p->_axis_angular] * p->scale_angular);
+    }
+
   } // end joy_cb();
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1018,6 +1034,7 @@ protected:
   void rgb_cb(const sensor_msgs::ImageConstPtr& rgb,
               unsigned int player_idx) {
     DEBUG_PRINT("rgb_cb(%i)\n", player_idx);
+
     if (player_idx >= _nplayers) // sanity check
       return;
     Player* p = &(_players[player_idx]);
@@ -1040,23 +1057,6 @@ protected:
         int paddingx = player_w - p->_rgb._width;
         p->player_tl_camview.x = p->player_tl_win.x + paddingx/2;
        }
-
-    //Also update of the player item_tl_corner and its size to fit the image
-
-//    if (!p->item_size_updated) {
-//        _item_w = p->_rgb._height/4;
-//        load_item(_item_w);
-
-//        p->item_tl_corner.x = p->player_tl_camview.x + p->_rgb._width -_item_w*1.2;
-//        p->item_tl_corner.y = p->player_tl_camview.y;
-//        p->curse_tl.x = p->item_tl_corner.x - 1.2*_item_w;
-//        p->curse_tl.y = p->item_tl_corner.y;
-
-//        p->item_size_updated=true; // Do the update only onte time by players.
-//    }
-
-
-
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1107,7 +1107,7 @@ protected:
     Item item;
     Curse curse;
     JoypadStatus joypad_status;
-    int _axis_linear, _axis_angular, _axis_90turn, _axis_180turn, _button_item;
+    int _axis_linear, _axis_angular, _button_90turn, _button_180turn, _button_item, _button_deadman, _offset_linear;
     RobotStatus robot_status;
     CameraStatus camera_status;
     bool sharp_turn_before, item_button_before, item_size_updated;
@@ -1120,7 +1120,7 @@ protected:
 
   SDL_Window* window;
   SDL_Renderer* renderer;
-  int _winw, _winh;
+  int _winw, _winh, _max_col;
   unsigned int _nplayers;
   std::vector<Player> _players;
   GameStatus _game_status;
