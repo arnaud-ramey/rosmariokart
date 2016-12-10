@@ -13,7 +13,7 @@
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy1" output="screen" >
-    <param name="dev" value="/dev/input/js0" />
+    <param name="dev" value="/dev/input/js1" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -23,7 +23,7 @@
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy2" output="screen" >
-    <param name="dev" value="/dev/input/js1" />
+    <param name="dev" value="/dev/input/js2" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -33,7 +33,7 @@
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
   <node pkg="joy" type="joy_node" name="joy3" output="screen" >
-    <param name="dev" value="/dev/input/js1" />
+    <param name="dev" value="/dev/input/js3" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -50,8 +50,9 @@
   <param name="button_item" value="3"/>
   <param name="winw" value="1200"/>
   <param name="winh" value="600"/>
-  <param name="race_duration" value="100"/>
+  <param name="race_duration" value="10"/>
   <param name="min_time_roulette" value="5"/>
+  <param name="use_rgb" value="false"/>
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>
   <param name="player3_name" value="robot_2"/>
