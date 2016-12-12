@@ -12,34 +12,58 @@
 <!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" required="true" >
-  <param name="winw" value="1050"/>
-  <param name="winh" value="550"/>
+  <param name="winw" value="1300"/>
+  <param name="winh" value="700"/>
   <param name="axis_linear" value="1"/>
   <param name="axis_angular" value="0"/>
   <param name="axis_90turn" value="4"/>
   <param name="axis_180turn" value="5"/>
   <param name="button_item" value="3"/>
+
   <param name="player1_name" value="$(arg p1)"/>
+  <param name="$(arg p1)/scale_angular" value="20.0"/>
+  <param name="$(arg p1)/scale_linear" value="50.0"/>
+  <remap from="/$(arg p1)/image" to="/$(arg p1)/camera/image_raw"/>
+
   <param name="player2_name" value="$(arg p2)"/>
+  <param name="$(arg p2)/scale_angular" value="20.0"/>
+  <param name="$(arg p2)/scale_linear" value="50.0"/>
+  <remap from="/$(arg p2)/image" to="/$(arg p2)/camera/image_raw"/>
+
   <param name="player3_name" value="$(arg p3)"/>
+  <param name="$(arg p3)/scale_angular" value="20.0"/>
+  <param name="$(arg p3)/scale_linear" value="50.0"/>
+  <remap from="/$(arg p3)/image" to="/$(arg p3)/camera/image_raw"/>
+
+<!--
   <param name="player4_name" value="$(arg p4)"/>
+  <param name="$(arg p4)/scale_angular" value="20.0"/>
+  <param name="$(arg p4)/scale_linear" value="50.0"/>
+  <remap from="/$(arg p4)/image" to="/$(arg p4)/camera/image_raw"/>
+-->
 </node>
 
 <!-- drivers -->
 <include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
   <arg name="robot" value="$(arg p1)"/>
   <arg name="joydevice" value="/dev/input/js1"/>
+  <arg name="ip" value="192.168.1.15" />
 </include>
 <include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
   <arg name="robot" value="$(arg p2)"/>
   <arg name="joydevice" value="/dev/input/js2"/>
+  <arg name="ip" value="192.168.1.17" />
 </include>
 <include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
   <arg name="robot" value="$(arg p3)"/>
   <arg name="joydevice" value="/dev/input/js3"/>
+  <arg name="ip" value="192.168.1.18" />
 </include>
+<!--
 <include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
   <arg name="robot" value="$(arg p4)"/>
   <arg name="joydevice" value="/dev/input/js4"/>
+  <arg name="ip" value="192.168.1.19" />
 </include>
+-->
 </launch>

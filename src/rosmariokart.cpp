@@ -1060,6 +1060,7 @@ protected:
       if (!_rgb.from_ros_image(_game->renderer, *rgb,
                                _game->player_w, _game->player_h)) {
         ROS_WARN("Texture::from_ros_image() failed!");
+        return;
       }
 
       //update of the player player_tl_camview in order to center the video image
