@@ -12,7 +12,7 @@ define sumo_robot position
     point[4] [-0.1 0]
     z [0 1]
   )
-  origin [0 0 0 0]
+  origin [0.000 0.000 0.000 0.000]
   gui_nose 1
   drive "diff"
 
@@ -31,7 +31,7 @@ define sumocam camera # http://playerstage.sourceforge.net/doc/stage-3.0.1/group
 
   # model properties
   #size [ -0.100 0.070 0.050 ]
-  size [ 0 0 0 ]
+  size [ 0.000 0.000 0.000 ]
   color "black"
   #origin [ -0.2 0 0 0 ] # specify the position of the object's center, relative to its pose
 )
@@ -60,9 +60,9 @@ interval_sim 100  # simulation timestep in milliseconds
 
 window
 (
-  size [ 1366 743 ] ### in pixels
+  size [ 422 442 ] ### in pixels
   #rotate [ 0.000 -1.560 ]
-  scale 50.000
+  scale 28.224
 )
 
 # load an environment bitmap
@@ -71,7 +71,7 @@ floorplan
   name "floor"
   bitmap "bitmaps/Mariocircuit1_wider.png"
   size [15.000 15.000 0.500] # in meters
-  pose [ 0.000 0.000 0.000 0.000 ]
+  pose [ 0.129 -0.032 0.000 0.000 ]
 )
 
 # throw in the robots

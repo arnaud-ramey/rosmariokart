@@ -8,12 +8,37 @@
 <node pkg="stage_ros" type="stageros" name="stageros" required="true"
       args="$(find rosmariokart)/config/Mariocircuit1.world"/>
 
+
+<!-- rosmariokart -->
+<node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
+      output="screen" >
+
+	<param name="winw" 				value="600"/>
+	<param name="winh" 				value="400"/>
+	<param name="race_duration" 	value="60"/>	<!-- in sec. -->
+	<param name="min_time_roulette" value="5"/> 	<!-- in sec. -->
+	<param name="use_rgb" 			value="false"/>
+	<param name="number_of_cols"	value="2"/>
+
+	<param name="player1_name" value="robot_0"/>
+	<param name="player2_name" value="robot_1"/>
+	<param name="player3_name" value="robot_2"/>
+<!--
+	<param name="player4_name" value="robot_3"/>
+	<param name="player5_name" value="robot_4" />
+	<param name="player6_name" value="robot_5" />
+	<param name="player7_name" value="robot_6" />
+-->
+
+</node>
+
+
 <!-- first joystick -->
 <group ns="robot_0">
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
-  <node pkg="joy" type="joy_node" name="joy1" output="screen" >
-    <param name="dev" value="/dev/input/js1" />
+  <node pkg="joy" type="joy_node" name="joy" output="screen" >
+    <param name="dev" value="/dev/input/js0" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -22,8 +47,8 @@
 <group ns="robot_1">
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
-  <node pkg="joy" type="joy_node" name="joy2" output="screen" >
-    <param name="dev" value="/dev/input/js2" />
+  <node pkg="joy" type="joy_node" name="joy" output="screen" >
+    <param name="dev" value="/dev/input/js1 "/>
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
@@ -32,35 +57,22 @@
 <group ns="robot_2">
   <param name="scale_linear" value=".5"/>
   <param name="scale_angular" value=".5"/>
-  <node pkg="joy" type="joy_node" name="joy3" output="screen" >
+  <node pkg="joy" type="joy_node" name="joy" output="screen" >
+    <param name="dev" value="/dev/input/js2" />
+    <param name="autorepeat_rate" value="25" />
+  </node>
+</group>
+
+<!-- fourth joystick -->
+<group ns="robot_3">
+  <param name="scale_linear" value=".5"/>
+  <param name="scale_angular" value=".5"/>
+  <node pkg="joy" type="joy_node" name="joy" output="screen" >
     <param name="dev" value="/dev/input/js3" />
     <param name="autorepeat_rate" value="25" />
   </node>
 </group>
 
-
-
-<!-- rosmariokart -->
-<node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
-      output="screen" >
-   <param name="axis_linear" value="3"/>
-    <param name="axis_angular" value="0"/>
-   <param name="axis_90turn" value="4"/>
-  <param name="axis_180turn" value="5"/>
-  <param name="button_item" value="3"/>
-  <param name="winw" value="1200"/>
-  <param name="winh" value="600"/>
-  <param name="race_duration" value="10"/>
-  <param name="min_time_roulette" value="5"/>
-  <param name="use_rgb" value="false"/>
-  <param name="player1_name" value="robot_0"/>
-  <param name="player2_name" value="robot_1"/>
-  <param name="player3_name" value="robot_2"/>
-<!--
-  <param name="player4_name" value="robot_3"/>
--->
-
-</node>
 
 <!--
 <node pkg="image_view" type="image_view" output="screen"

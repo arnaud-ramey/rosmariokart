@@ -1,0 +1,13 @@
+<launch>
+
+<arg name="robot" default="robot" />
+<arg name="ip" default="_0" />
+
+<!--
+  NOTHING TO DO ? 
+ <remap from="Player1_stage/image" to="/robot_0/image" />
+ <remap from="$(arg robot)/image" to="/robot_0/image" />
+ <remap from="/robot_0" to="/$(arg robot)"/>
+-->
+       
+</launch>

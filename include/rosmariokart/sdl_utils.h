@@ -461,7 +461,8 @@ public:
 
   bool from_file(SDL_Renderer* renderer, const std::string &str,
                  int goalwidth = -1, int goalheight = -1, double goalscale = -1) {
-    DEBUG_PRINT("Texture::from_file('%s'), goal:(%i, %i, %g)\n", str.c_str(), goalwidth, goalheight, goalscale);
+    DEBUG_PRINT("Texture::from_file('%s'), goal:(%i, %i, %g)\n",
+                str.c_str(), goalwidth, goalheight, goalscale);
     free();
     // Load image as SDL_Surface
     _sdlsurface = IMG_Load( str.c_str() );
