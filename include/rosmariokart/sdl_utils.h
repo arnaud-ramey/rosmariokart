@@ -320,7 +320,8 @@ SDL_Surface *ScaleSurface(SDL_Surface *Surface, Uint16 Width, Uint16 Height)
     return 0;
 
   SDL_Surface *_ret = SDL_CreateRGBSurface(Surface->flags, Width, Height, Surface->format->BitsPerPixel,
-                                           Surface->format->Rmask, Surface->format->Gmask, Surface->format->Bmask, Surface->format->Amask);
+                                           Surface->format->Rmask, Surface->format->Gmask,
+                                           Surface->format->Bmask, Surface->format->Amask);
 
   double    _stretch_factor_x = (static_cast<double>(Width)  / static_cast<double>(Surface->w)),
       _stretch_factor_y = (static_cast<double>(Height) / static_cast<double>(Surface->h));
@@ -432,7 +433,12 @@ inline void Mix_FreeChunk_safe(Mix_Chunk * & chunk) {
 
 class Texture {
 public:
-  Texture() { _sdltex = NULL; _sdlsurface = NULL; _width =  _height = 0; _resize_scale = 1; }
+  Texture() {
+    _sdltex = NULL;
+    _sdlsurface_raw = _sdlsurface_rescaled = NULL;
+    _width =  _height = 0;
+    _resize_scale = 1;
+  }
   ~Texture() { free(); }
 
   void free() {
@@ -444,9 +450,10 @@ public:
     //Free texture if it exists
     if (_sdltex != NULL)
       SDL_DestroyTexture( _sdltex );
-    if (_sdlsurface != NULL)
-      SDL_FreeSurface( _sdlsurface );
+    if (_sdlsurface_raw != NULL)
+      SDL_FreeSurface( _sdlsurface_raw );
     _sdltex = NULL;
+    _sdlsurface_raw = NULL;
   } // end free()
 
   //////////////////////////////////////////////////////////////////////////////
@@ -465,8 +472,8 @@ public:
                 str.c_str(), goalwidth, goalheight, goalscale);
     free();
     // Load image as SDL_Surface
-    _sdlsurface = IMG_Load( str.c_str() );
-    if( _sdlsurface == NULL ) {
+    _sdlsurface_raw = IMG_Load( str.c_str() );
+    if( _sdlsurface_raw == NULL ) {
       printf( "Unable to load image %s! SDL Error: %s\n", str.c_str(), SDL_GetError() );
       return false;
     }
@@ -479,22 +486,11 @@ public:
                       int goalwidth = -1, int goalheight = -1, double goalscale = -1) {
     DEBUG_PRINT("Texture::from_ros_image(), goal:(%i, %i, %g)\n",
                 goalwidth, goalheight, goalscale);
-    free();
     // Load image as SDL_Surface
     const unsigned char* data = img.data.data();
     int depth = 24; // the depth of the surface in bits
     int pitch = img.step; // the length of a row of pixels in bytes
     Uint32 Rmask = 0, Gmask = 0, Bmask = 0, Amask = 0;
-
-    /*if (img.encoding.empty()) { // empty encoding -> check if it could be BGR8
-      int datasize = img.data.size(), expdatasize = img.width * img.height * 3;
-      if (datasize != expdatasize) {
-        printf("from_ros_image(): empty encoding, size %ix%i, "
-               "expected %i bytes, got %i!\n", img.width, img.height,
-               expdatasize, datasize);
-        return false;
-      }
-    } else */
 
     if (img.encoding == "bgr8") {
       depth = 24; // the depth of the surface in bits
@@ -503,10 +499,9 @@ public:
       Gmask = 0x00ff00;
       Bmask = 0x0000ff;
       Amask = 0;
-     } else if (img.encoding == "rgba8") {
+    } else if (img.encoding == "rgba8") {
       depth = 32; // the depth of the surface in bits
       // http://www.gamedev.net/topic/227811-sdl_creatergbsurfacefrom/
-
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
       Rmask = 0xff000000;
       Gmask = 0x00ff0000;
@@ -526,10 +521,12 @@ public:
 
     // http://docs.ros.org/api/sensor_msgs/html/msg/Image.html
     // https://wiki.libsdl.org/SDL_CreateRGBSurfaceFrom
-    _sdlsurface = SDL_CreateRGBSurfaceFrom((void*) data, img.width, img.height,
-                                           depth, pitch,
-                                           Rmask, Gmask, Bmask, Amask);
-    if( _sdlsurface == NULL ) {
+    // free if needed
+    SDL_FreeSurface( _sdlsurface_raw );
+    _sdlsurface_raw = SDL_CreateRGBSurfaceFrom((void*) data, img.width, img.height,
+                                               depth, pitch,
+                                               Rmask, Gmask, Bmask, Amask);
+    if( _sdlsurface_raw == NULL ) {
       printf( "Unable to load texture from ROS image! SDL Error: %s\n",
               SDL_GetError() );
       return false;
@@ -541,28 +538,33 @@ public:
 
   bool from_surface(SDL_Renderer* renderer,
                     int goalwidth = -1, int goalheight = -1, double goalscale = -1) {
-    if (goalwidth <= 0 && goalheight <= 0 && goalscale <= 0)
+    SDL_Surface* src_surface = _sdlsurface_raw;
+    if (goalwidth <= 0 && goalheight <= 0 && goalscale <= 0) {
       _resize_scale = 1;
+    }
     else {
-      double scalex =  (goalwidth > 0 ? 1. * goalwidth / _sdlsurface->w : 1E6);
-      double scaley =  (goalheight > 0 ? 1. * goalheight / _sdlsurface->h : 1E6);
+      double scalex =  (goalwidth > 0 ? 1. * goalwidth / _sdlsurface_raw->w : 1E6);
+      double scaley =  (goalheight > 0 ? 1. * goalheight / _sdlsurface_raw->h : 1E6);
       double scalescale =  (goalscale > 0 ? goalscale : 1E6);
       _resize_scale = std::min(scalescale, std::min(scalex, scaley));
-      SDL_Surface* surface_scaled = ScaleSurface(_sdlsurface, _resize_scale * _sdlsurface->w, _resize_scale * _sdlsurface->h);
-      SDL_FreeSurface( _sdlsurface );
-      _sdlsurface = surface_scaled;
+      int resized_w = _resize_scale * _sdlsurface_raw->w;
+      int resized_h = _resize_scale * _sdlsurface_raw->h;
+      SDL_FreeSurface( _sdlsurface_rescaled );
+      _sdlsurface_rescaled = ScaleSurface(_sdlsurface_raw, resized_w, resized_h);
+      src_surface = _sdlsurface_rescaled;
     }
 
     // SDL_Surface is just the raw pixels
     // Convert it to a hardware-optimzed texture so we can render it
-    _sdltex = SDL_CreateTextureFromSurface( renderer, _sdlsurface );
+    SDL_DestroyTexture( _sdltex );
+    _sdltex = SDL_CreateTextureFromSurface( renderer, src_surface );
     if (_sdltex == NULL) {
       printf("Could not convert surface -> texture :'%s'\n", SDL_GetError());
       return false;
     }
     //Get image dimensions
-    _width = _sdlsurface->w;
-    _height = _sdlsurface->h;
+    _width = src_surface->w;
+    _height = src_surface->h;
     return true;
   }
 
@@ -578,24 +580,24 @@ public:
     //Render text surface
     SDL_Color fg = {r, g, b, a};
     if (bga <= 0)
-      _sdlsurface = TTF_RenderText_Solid( font, textureText.c_str(), fg );
+      _sdlsurface_raw = TTF_RenderText_Solid( font, textureText.c_str(), fg );
     else {
       SDL_Color bg = {bgr, bgg, bgb, bga};
-      _sdlsurface = TTF_RenderText_Shaded( font, textureText.c_str(), fg, bg );
+      _sdlsurface_raw = TTF_RenderText_Shaded( font, textureText.c_str(), fg, bg );
     }
-    if( _sdlsurface == NULL ) {
+    if( _sdlsurface_raw == NULL ) {
       printf( "Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError() );
       return false;
     }
     //Create texture from surface pixels
-    _sdltex = SDL_CreateTextureFromSurface( renderer, _sdlsurface );
+    _sdltex = SDL_CreateTextureFromSurface( renderer, _sdlsurface_raw );
     if( _sdltex == NULL ) {
       printf( "Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError() );
       return false;
     }
     //Get image dimensions
-    _width = _sdlsurface->w;
-    _height = _sdlsurface->h;
+    _width = _sdlsurface_raw->w;
+    _height = _sdlsurface_raw->h;
     return true;
   }
 
@@ -645,8 +647,8 @@ public:
         || p.y < 0 || p.y >= get_height())
       return -1;
     Uint8 red, green, blue, alpha;
-    SDL_GetRGBA(getpixel(_sdlsurface, p.x, p.y),
-                _sdlsurface->format, &red, &green, &blue, &alpha);
+    SDL_GetRGBA(getpixel(_sdlsurface_raw, p.x, p.y),
+                _sdlsurface_raw->format, &red, &green, &blue, &alpha);
     return alpha;
   }
 
@@ -656,9 +658,9 @@ public:
 private:
   //The actual hardware texture
   SDL_Texture* _sdltex;
-  SDL_Surface* _sdlsurface;
+  SDL_Surface* _sdlsurface_raw, *_sdlsurface_rescaled;
   //Image dimensions
- // int _width, _height;
+  // int _width, _height;
   double _resize_scale;
 }; // end Texture
 

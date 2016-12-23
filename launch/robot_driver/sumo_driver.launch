@@ -1,23 +1,23 @@
 <launch>
-
-<arg name="robot" 	default="rossumo" />
-<arg name="ip" 		default="192.168.2.1" />
-
-
-<remap from="camera/image_raw" to="image"/>
-
-	
+<arg name="robot"   default="rossumo" />
+<arg name="ip"    default="192.168.2.1" />
 <group ns="$(arg robot)">
+  <remap from="camera/image_raw" to="image"/>
 
-	<!-- rossumo driver -->
-	<node pkg="rossumo" type="rossumo.exe" name="sumo" respawn="false" output="screen">
-		<param name="ip_address" value="$(arg ip)"/>
-	</node>
-    
-	<!-- sumo animations rostopic pub -1 /sumo/animation std_msgs/String "data: 'win'" -->
-	<node pkg="rosmariokart" type="sumo_animations.exe" name="sumo_animations"
-		respawn="false" output="screen"	args="" >		
-	</node>
-        
+  <!-- rossumo driver -->
+  <node pkg="rossumo" type="rossumo.exe" name="sumo" respawn="false" output="screen">
+    <param name="ip_address" value="$(arg ip)"/>
+  </node>
+
+  <!-- sumo animations rostopic pub -1 /sumo/animation std_msgs/String "data: 'win'" -->
+  <node pkg="rosmariokart" type="sumo_animations.exe" name="sumo_animations"
+    respawn="false" output="screen" args="" >
+  </node>
+
+  <!-- joypad to cmd_vel -->
+  <node pkg="rosmariokart" type="generic_joy_cmd_vel.exe" name="joy_cmd_vel" output="screen" />
+
+  <!-- joypad to item-->
+  <node pkg="rosmariokart" type="generic_joy_item.exe" name="joy_item" output="screen" />
 </group>
 </launch>

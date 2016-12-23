@@ -13,66 +13,61 @@
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" >
 
-	<param name="winw" 				value="600"/>
-	<param name="winh" 				value="400"/>
-	<param name="race_duration" 	value="60"/>	<!-- in sec. -->
-	<param name="min_time_roulette" value="5"/> 	<!-- in sec. -->
-	<param name="use_rgb" 			value="false"/>
-	<param name="number_of_cols"	value="2"/>
+  <param name="winw"        value="600"/>
+  <param name="winh"        value="400"/>
+  <param name="race_duration"   value="60"/>  <!-- in sec. -->
+  <param name="min_time_roulette" value="5"/>   <!-- in sec. -->
+  <param name="use_rgb"       value="true"/>
+  <param name="number_of_cols"  value="2"/>
 
-	<param name="player1_name" value="robot_0"/>
-	<param name="player2_name" value="robot_1"/>
-	<param name="player3_name" value="robot_2"/>
+  <param name="player1_name" value="robot_0"/>
+  <param name="player2_name" value="robot_1"/>
 <!--
-	<param name="player4_name" value="robot_3"/>
-	<param name="player5_name" value="robot_4" />
-	<param name="player6_name" value="robot_5" />
-	<param name="player7_name" value="robot_6" />
+  <param name="player3_name" value="robot_2"/>
+  <param name="player4_name" value="robot_3"/>
+  <param name="player5_name" value="robot_4" />
+  <param name="player6_name" value="robot_5" />
+  <param name="player7_name" value="robot_6" />
 -->
 
 </node>
 
 
 <!-- first joystick -->
-<group ns="robot_0">
-  <param name="scale_linear" value=".5"/>
-  <param name="scale_angular" value=".5"/>
-  <node pkg="joy" type="joy_node" name="joy" output="screen" >
-    <param name="dev" value="/dev/input/js0" />
-    <param name="autorepeat_rate" value="25" />
-  </node>
-</group>
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
+  <arg name="robot"   default="robot_0" />
+  <arg name="device"  default="/dev/input/js1" />
+</include>
+<include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
+  <arg name="robot"   default="robot_0" />
+</include>
 
 <!-- second joystick -->
-<group ns="robot_1">
-  <param name="scale_linear" value=".5"/>
-  <param name="scale_angular" value=".5"/>
-  <node pkg="joy" type="joy_node" name="joy" output="screen" >
-    <param name="dev" value="/dev/input/js1 "/>
-    <param name="autorepeat_rate" value="25" />
-  </node>
-</group>
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
+  <arg name="robot"   default="robot_1" />
+  <arg name="device"  default="/dev/input/js2" />
+</include>
+<include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
+  <arg name="robot"   default="robot_1" />
+</include>
 
 <!-- third joystick -->
-<group ns="robot_2">
-  <param name="scale_linear" value=".5"/>
-  <param name="scale_angular" value=".5"/>
-  <node pkg="joy" type="joy_node" name="joy" output="screen" >
-    <param name="dev" value="/dev/input/js2" />
-    <param name="autorepeat_rate" value="25" />
-  </node>
-</group>
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
+  <arg name="robot"   default="robot_2" />
+  <arg name="device"  default="/dev/input/js3" />
+</include>
+<include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
+  <arg name="robot"   default="robot_2" />
+</include>
 
 <!-- fourth joystick -->
-<group ns="robot_3">
-  <param name="scale_linear" value=".5"/>
-  <param name="scale_angular" value=".5"/>
-  <node pkg="joy" type="joy_node" name="joy" output="screen" >
-    <param name="dev" value="/dev/input/js3" />
-    <param name="autorepeat_rate" value="25" />
-  </node>
-</group>
-
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
+  <arg name="robot"   default="robot_3" />
+  <arg name="device"  default="/dev/input/js4" />
+</include>
+<include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
+  <arg name="robot"   default="robot_3" />
+</include>
 
 <!--
 <node pkg="image_view" type="image_view" output="screen"

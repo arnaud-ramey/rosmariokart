@@ -1,37 +1,46 @@
 <launch>
-
-
-<arg name="robot" 		default="rossumo" />
-<arg name="device" 		default="/dev/input/js0" />
-
-<!-- default setting for controller-->
-<arg name="axis_linear" 		default="1"/> 
-<arg name="axis_angular" 		default="0"/> 
-<arg name="button_90turn" 		default="5"/>  
-<arg name="button_180turn" 		default="4"/> 
-<arg name="button_item" 		default="7"/>  
-<arg name="scale_angular" 		default="20.0"/>
-<arg name="scale_linear" 		default="30.0"/>
-	
+<!-- a launch file adapted to the Gamepad SOG RFPG Wireless
+    +—————————+                           +—————————+
+    | |__6__| |                           | |__7__| |
+    |  _____  |                           |  _____  |
+    | |__4__| |                           | |__5__| |
+    +—————————+                           +—————————+
+   /  +—————+  \—————————————————————————/           \
+  /   |  -  |   \   __   __   __   __   /   |  _  |   \
+ / ___| /A\ |___ \ |_8| |__| |__| |_9| / ___| /0\ |___ \
+/ |      5      | |  __           _   | | _         _ | |
+| | <-A4   A4+> | | |__|         |_|  | ||3|       (1)| |
+| |___   A   ___| |SELECT       START | |___       ___| |
+|\    | \5/ |    /        ___          \    | (2) |    /|
+| \   |__+__|   //—————\ |___|  /—————\ \   |_____|   / |
+|  +——————————+ /  A1-  \ MODE /  A3-  \ \———————————/  |
+|               |-A0   +|——————|-A2   +|                |
+|              /\  A1+  /      \  A3+  /\               |
+|             /  \—————/        \—————/  \              |
+|            /     10             11      \             |
+ \          /                              \           /
+  \________/                                \_________/
+-->
+<arg name="robot"     default="rossumo" />
+<arg name="device"    default="/dev/input/js0" />
 
 <group ns="$(arg robot)">
-	
-	<param name="axis_linear" 		value="$(arg axis_linear)"/> 
-	<param name="axis_angular" 		value="$(arg axis_angular)"/> 
-	<param name="button_90turn" 	value="$(arg button_90turn)"/>  
-	<param name="button_180turn" 	value="$(arg button_180turn)"/> 
-	<param name="button_item" 		value="$(arg button_item)"/>  
-	<param name="scale_angular" 	value="$(arg scale_angular)"/>
-	<param name="scale_linear" 		value="$(arg scale_linear)"/>
+  <!-- setting for controller-->
+  <param name="axis_180turn"     value="4"/>
+  <param name="axis_90turn"      value="5"/>
+  <param name="axis_angular"     value="2"/>
+  <param name="axis_linear"      value="1"/>
+  <param name="button_anim"      value="6"/>
+  <param name="button_high_jump" value="4"/>
+  <param name="button_item"      value="7"/>
+  <param name="button_posture"   value="5"/>
+  <param name="scale_angular"    value="1"/>
+  <param name="scale_linear"     value="1"/>
 
-	<node pkg="joy" type="joy_node" name="joy" output="screen" >
-			<param name="dev" value="$(arg device)" />
-			<param name="autorepeat_rate" value="25" />
-			
-
-	
-	</node>
-	        
+  <node pkg="joy" type="joy_node" name="joy" output="screen" >
+      <param name="dev" value="$(arg device)" />
+      <param name="autorepeat_rate" value="25" />
+  </node>
 </group>
 </launch>
 

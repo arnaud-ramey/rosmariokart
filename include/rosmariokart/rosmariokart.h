@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 enum GameStatus {
-  GAME_STATUS_WAITING   = 0, // waiting for robots or joypads
+  GAME_STATUS_WAITING   = 0, // waiting for robots or cmd_vels
   GAME_STATUS_COUNTDOWN = 1, // countdown + lakitu
   GAME_STATUS_RACE      = 2, // race time
   GAME_STATUS_RACE_OVER = 3, // players cant move anymore
@@ -46,13 +46,11 @@ enum Curse {
   CURSE_TIMEBOMB_HIT       = 12,
   NCURSES                  = 13
 };
-enum JoypadStatus {
-  JOYPAD_NEVER_RECEIVED = 0,
-  JOYPAD_OK             = 1,
-  JOYPAD_BAD_AXES_NB    = 2,
-  JOYPAD_BAD_BUTTONS_NB = 3,
-  JOYPAD_TIMEOUT        = 4,
-  NJOYPAD_STATUSES      = 5
+enum CmdVelStatus {
+  CMD_VEL_NEVER_RECEIVED = 0,
+  CMD_VEL_OK             = 1,
+  CMD_VEL_TIMEOUT        = 4,
+  NCMD_VEL_STATUSES      = 5
 };
 
 enum CameraStatus {

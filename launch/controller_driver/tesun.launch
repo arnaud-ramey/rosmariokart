@@ -1,37 +1,25 @@
 <launch>
-
-
-<arg name="robot" 		default="rossumo" />
-<arg name="device" 		default="/dev/input/js0" />
-
-<!-- default setting for controller-->
-<arg name="axis_linear" 		default="2"/> 
-<arg name="axis_angular" 		default="0"/> 
-<arg name="button_90turn" 		default="6"/>  
-<arg name="button_180turn" 		default="8"/> 
-<arg name="button_item" 		default="7"/>  
-<arg name="scale_angular" 		default="20.0"/>
-<arg name="scale_linear" 		default="30.0"/>
-	
+<!-- a launch file adapted to the Tesun USB double-joypad -->
+<arg name="robot"     default="rossumo" />
+<arg name="device"    default="/dev/input/js0" />
 
 <group ns="$(arg robot)">
-	
-	<param name="axis_linear" 		value="$(arg axis_linear)"/> 
-	<param name="axis_angular" 		value="$(arg axis_angular)"/> 
-	<param name="button_90turn" 	value="$(arg button_90turn)"/>  
-	<param name="button_180turn" 	value="$(arg button_180turn)"/> 
-	<param name="button_item" 		value="$(arg button_item)"/>  
-	<param name="scale_angular" 	value="$(arg scale_angular)"/>
-	<param name="scale_linear" 		value="$(arg scale_linear)"/>
+  <!-- setting for controller-->
+  <param name="axis_angular"     value="0"/>
+  <param name="axis_linear"      value="2"/>
+  <param name="button_180turn"   value="8"/>
+  <param name="button_90turn"    value="6"/>
+  <param name="button_anim"      value="-1"/>
+  <param name="button_high_jump" value="-1"/>
+  <param name="button_item"      value="7"/>
+  <param name="button_posture"   value="-1"/>
+  <param name="scale_angular"    value="1"/>
+  <param name="scale_linear"     value="1"/>
 
-	<node pkg="joy" type="joy_node" name="joy" output="screen" >
-			<param name="dev" value="$(arg device)" />
-			<param name="autorepeat_rate" value="25" />
-			
-
-	
-	</node>
-	        
+  <node pkg="joy" type="joy_node" name="joy" output="screen" >
+      <param name="dev" value="$(arg device)" />
+      <param name="autorepeat_rate" value="25" />
+  </node>
 </group>
 </launch>
 

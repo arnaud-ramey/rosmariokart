@@ -1,13 +1,9 @@
 <launch>
-
 <arg name="robot" default="robot" />
-<arg name="ip" default="_0" />
-
-<!--
-  NOTHING TO DO ? 
- <remap from="Player1_stage/image" to="/robot_0/image" />
- <remap from="$(arg robot)/image" to="/robot_0/image" />
- <remap from="/robot_0" to="/$(arg robot)"/>
--->
-       
+<group ns="$(arg robot)">
+  <!-- joypad to cmd_vel -->
+  <node pkg="rosmariokart" type="generic_joy_cmd_vel.exe" name="joy_cmd_vel" output="screen" />
+  <!-- joypad to item-->
+  <node pkg="rosmariokart" type="generic_joy_item.exe" name="joy_item" output="screen" />
+</group>
 </launch>

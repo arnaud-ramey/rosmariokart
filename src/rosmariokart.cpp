@@ -32,11 +32,11 @@ ________________________________________________________________________________
 
 // third parties
 #include <ros/ros.h>
+#include <std_msgs/Empty.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Twist.h>
 #include <image_transport/image_transport.h>
-#include <sensor_msgs/Joy.h>
 #include <sensor_msgs/Image.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -54,7 +54,7 @@ public:
       _player_idx = player_idx;
       _item = ITEM_NONE;
       _curse = CURSE_NONE;
-      _joypad_status = JOYPAD_NEVER_RECEIVED;
+      _cmd_vel_status = CMD_VEL_NEVER_RECEIVED;
       _robot_status = ROBOT_NEVER_RECEIVED;
       _camera_status = CAMERA_NEVER_RECEIVED ;
       _scale_linear = _scale_angular = 1;
@@ -126,8 +126,10 @@ public:
       nh_public.param(_name + "/offset_linear",_offset_linear, 0);
 
       // create subscribers
-      _joy_sub = _game->_nh_public.subscribe<sensor_msgs::Joy>
-          (_name + "/joy", 1, &Player::joy_cb, this);
+      _cmd_vel_sub = _game->_nh_public.subscribe
+          (_name + "/cmd_vel", 1, &Player::cmd_vel_cb, this);
+      _item_sub = _game->_nh_public.subscribe
+          (_name + "/item", 1, &Player::item_cb, this);
       bool use_rgb = true;
       nh_private.param("use_rgb",use_rgb, use_rgb);
       if (use_rgb)
@@ -196,16 +198,16 @@ public:
 
     ////////////////////////////////////////////////////////////////////////////
 
-    //! check if player has a publisher for joypad and a subscriber for cmd_vel
+    //! check if player has a publisher for cmd_vel and a subscriber for cmd_vel
     //! \return true if everything OK, false otherwise.
     //! If false, the image needs to be displayed
-    bool check_joypads_and_robots() {
-      // sanity checks: check joypad status
-      if (_joypad_status != JOYPAD_OK)
+    bool check_cmd_vels_and_robots() {
+      // sanity checks: check cmd_vel status
+      if (_cmd_vel_status != CMD_VEL_OK)
         return false;
-      else if (_last_joy_updated.getTimeSeconds() > .5) {
-        ROS_WARN("Player %i: JOYPAD_TIMEOUT", _player_idx);
-        _joypad_status = JOYPAD_TIMEOUT;
+      else if (_last_cmd_vel_updated.getTimeSeconds() > .5) {
+        ROS_WARN("Player %i: cmd_vel_TIMEOUT", _player_idx);
+        _cmd_vel_status = CMD_VEL_TIMEOUT;
         return false;
       }
       // sanity checks: check robot status
@@ -217,7 +219,7 @@ public:
         return false;
       }
       return true;
-    } // end check_joypads_and_robots()
+    } // end check_cmd_vels_and_robots()
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -245,9 +247,9 @@ public:
       SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
       SDL_RenderDrawRect(renderer,&rect);
 
-      // draw joypad status
-      if (_joypad_status != JOYPAD_OK)
-        ok = ok && _game->_joypad_status_imgs[_joypad_status].render(renderer,
+      // draw cmd_vel status
+      if (_cmd_vel_status != CMD_VEL_OK)
+        ok = ok && _game->_cmd_vel_status_imgs[_cmd_vel_status].render(renderer,
                                                                      _tl_win);
       // draw robot status
       else if (_robot_status != ROBOT_OK)
@@ -259,8 +261,8 @@ public:
       ok = ok && _game->_bg_imgs[BG_ITEMS].render(renderer,
                                                   Point2d(_item_tl_corner.x-5,_item_tl_corner.y-5)); // Item Background
 
-      //ROS_WARN("Redraw player %i!", i); // do nothing if no joypad or robot
-      if (_joypad_status != JOYPAD_OK || _robot_status != ROBOT_OK)
+      //ROS_WARN("Redraw player %i!", i); // do nothing if no cmd_vel or robot
+      if (_cmd_vel_status != CMD_VEL_OK || _robot_status != ROBOT_OK)
         return ok;
 
       if (_curse != CURSE_NONE)
@@ -364,7 +366,6 @@ public:
       else if (_game->_game_status == GAME_STATUS_RACE_OVER) {
         v = w = 0; // can't move when race over
       } // end if GAME_STATUS_RACE_OVER
-
 
       geometry_msgs::Twist vel;
       vel.linear.x = v;
@@ -510,103 +511,37 @@ public:
 
     ////////////////////////////////////////////////////////////////////////////
 
-    void joy_cb(const sensor_msgs::Joy::ConstPtr& joy) {
-      //DEBUG_PRINT("joy_cb(%i)\n", _player_idx);
-
-      int naxes = joy->axes.size(), nbuttons = joy->buttons.size();
-
-      // Check if a button deadman is used (for Wiimote type IMU pad)
-      bool isWii = (_button_deadman >= 0);
-      bool deadman_ok = true;
-
-      if (naxes <_axis_90turn
-          || naxes <_axis_180turn
-          || naxes <_axis_linear
-          || naxes <_axis_angular) {
-        ROS_WARN_THROTTLE(1, "Only %i axes on joypad #%i!", naxes, _player_idx);
-        _joypad_status = JOYPAD_BAD_AXES_NB;
-        return;
-      }
-
-      if (nbuttons <_button_item) {
-        ROS_WARN_THROTTLE(1, "Only %i buttons on joypad #%i!", nbuttons, _player_idx);
-        _joypad_status = JOYPAD_BAD_BUTTONS_NB;
-        return;
-      }
-
-      _joypad_status = JOYPAD_OK;
-      _last_joy_updated.reset();
-      // check sharp turns at 90° or 180°
-      double angle = 0;
-      if (fabs(joy->buttons[_axis_90turn]) > 0.9)
-        angle = (joy->buttons[_axis_90turn] < 0 ? M_PI_2 : -M_PI_2);
-      if (fabs(joy->buttons[_axis_180turn]) > 0.9)
-        angle = (joy->buttons[_axis_180turn] < 0 ? 2 * M_PI : -M_PI);
-      bool command_sent = sharp_turn_button_cb(angle, _player_idx);
-
-      // check item button
-      if (joy->buttons[_button_item])
-        item_button_cb();
-      else {
-        _item_button_before = false;
-      }
-
-      // cheat: trigger ROULETTE with button 0
-      //if (joy->buttons[0]) set_players_roulette();
-
-      // if no command was sent till here: move robot with directions of axes
-      if (command_sent)
-        return;
-
-      if (isWii){
-        //Check if the deadman buttons is pressed before sending command.
-        deadman_ok = (nbuttons > _button_deadman && joy->buttons[_button_deadman]);
-        if (!deadman_ok) {
-          ROS_INFO_THROTTLE(10,
-                            "Dead man button %i is not pressed, sending a 0 speed order.",_button_deadman);
-          geometry_msgs::Twist vel;
-          set_speed(0,0);
-          _joypad_status = JOYPAD_OK;
-          _last_joy_updated.reset();
-          return;
-        }
-        set_speed((joy->axes[_axis_linear] + _offset_linear) * _scale_linear,
-                  joy->axes[_axis_angular] * _scale_angular);
-      }
-      else { // otherwise all is good (^_^)v
-        set_speed( joy->axes[_axis_linear]  * _scale_linear,
-                   joy->axes[_axis_angular] * _scale_angular);
-      }
-
-    } // end joy_cb();
+    void cmd_vel_cb(const geometry_msgs::Twist::ConstPtr& cmd_vel) {
+      _cmd_vel_status = CMD_VEL_OK;
+      _last_cmd_vel_updated.reset();
+      set_speed( cmd_vel->linear.x, cmd_vel->angular.z);
+    } // end cmd_vel_cb();
 
 
     ////////////////////////////////////////////////////////////////////////////
 
-    void rgb_cb(const sensor_msgs::ImageConstPtr& rgb) {
+    void item_cb(const std_msgs::Empty::ConstPtr&) {
+      item_button_cb();
+    } // end item_cb();
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    void rgb_cb(const sensor_msgs::ImageConstPtr& rgb) {
       if (!_rgb.from_ros_image(_game->_renderer, *rgb,
                                _game->player_w, _game->player_h)) {
         ROS_WARN("Texture::from_ros_image() failed!");
         return;
       }
-
       int paddingx = _game->player_w - _rgb._width;
       _tl_camview.x = _tl_win.x + paddingx/2;
-
       //update of the _tl_camview in order to center the video image
       if (_game->player_w ==_rgb._width){ // Image has been scaled to max width
-
         _tl_camview.x =_tl_win.x;
         int paddingy = _game->player_h -_rgb._height;
-
         _tl_camview.y =_tl_win.y + paddingy/2;
-
       }
       else{ // Image has been scaled to max height
-
         _tl_camview.y =_tl_win.y;
-
         int paddingx = _game->player_w -_rgb._width;
         _tl_camview.x =_tl_win.x + paddingx/2;
       }
@@ -620,20 +555,20 @@ public:
     Point2d _item_tl_corner, _curse_tl, _tl_win, _tl_camview, _tl_avatar;
     Item _item;
     Curse _curse;
-    JoypadStatus _joypad_status;
+    CmdVelStatus _cmd_vel_status;
     int _axis_linear, _axis_angular, _axis_90turn, _axis_180turn, _button_item,
     _button_deadman, _offset_linear;
     RobotStatus _robot_status;
     CameraStatus _camera_status;
     bool _sharp_turn_before, _item_button_before;
     double _scale_angular, _scale_linear;
-    Timer _curse_timer, _roulette_timer, _last_joy_updated;
+    Timer _curse_timer, _roulette_timer, _last_cmd_vel_updated;
     unsigned int _curse_caster_idx;
 
     Texture _avatar, _rgb;
     cv::Vec4i _bgcolor;
     // ROS data
-    ros::Subscriber _joy_sub ;
+    ros::Subscriber _cmd_vel_sub, _item_sub;
     image_transport::Subscriber _rgb_sub;
     ros::Publisher _cmd_vel_pub, _sharp_turn_pub, _animation_pub;
   }; // end struct Player //////////////////////////////////////////////////////
@@ -802,13 +737,11 @@ public:
     ok = ok && _curse_imgs[CURSE_STAR].from_file(_renderer, _data_path + "items/StarCurse.png", item_size);
     ok = ok && _curse_imgs[CURSE_TIMEBOMB_COUNTDOWN].from_file(_renderer, _data_path + "items/TimeBombCountdown.png", item_size);
     ok = ok && _curse_imgs[CURSE_TIMEBOMB_HIT].from_file(_renderer, _data_path + "items/TimeBombCurse.png", item_size);
-    // load joypad statues
-    _joypad_status_imgs.resize(NJOYPAD_STATUSES);
-    ok = ok && _joypad_status_imgs[JOYPAD_OK].from_file(_renderer, _data_path + "warnings/joypadOK.png", item_size);
-    ok = ok && _joypad_status_imgs[JOYPAD_BAD_AXES_NB].from_file(_renderer, _data_path + "warnings/joypadError.png", item_size);
-    ok = ok && _joypad_status_imgs[JOYPAD_BAD_BUTTONS_NB].from_file(_renderer, _data_path + "warnings/joypadError.png", item_size);
-    ok = ok && _joypad_status_imgs[JOYPAD_NEVER_RECEIVED].from_file(_renderer, _data_path + "warnings/joypadWarning.png", item_size);
-    ok = ok && _joypad_status_imgs[JOYPAD_TIMEOUT].from_file(_renderer, _data_path + "warnings/joypadWarning.png", item_size);
+    // load cmd_vel statues
+    _cmd_vel_status_imgs.resize(NCMD_VEL_STATUSES);
+    ok = ok && _cmd_vel_status_imgs[CMD_VEL_OK].from_file(_renderer, _data_path + "warnings/joypadOK.png", item_size);
+    ok = ok && _cmd_vel_status_imgs[CMD_VEL_NEVER_RECEIVED].from_file(_renderer, _data_path + "warnings/joypadWarning.png", item_size);
+    ok = ok && _cmd_vel_status_imgs[CMD_VEL_TIMEOUT].from_file(_renderer, _data_path + "warnings/joypadWarning.png", item_size);
     // load robot statuses
     _robot_status_imgs.resize(NROBOT_STATUSES);
     ok = ok && _robot_status_imgs[ROBOT_OK].from_file(_renderer, _data_path + "warnings/robotOK.png", item_size);
@@ -947,21 +880,21 @@ public:
   }
 
 protected:
-  //! check if player has a publisher for joypad and a subscriber for cmd_vel
+  //! check if player has a publisher for cmd_vel and a subscriber for cmd_vel
   //! \return true if everything OK, false otherwise.
   //! If false, the image needs to be displayed
-  bool check_joypads_and_robots() {
+  bool check_cmd_vels_and_robots() {
     for (unsigned int player_idx = 0; player_idx < _nplayers; ++player_idx) {
-      if (!_players[player_idx].check_joypads_and_robots())
+      if (!_players[player_idx].check_cmd_vels_and_robots())
         return false;
     } // end for _player_idx
     return true;
-  } // end check_joypads_and_robots()
+  } // end check_cmd_vels_and_robots()
 
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_waiting() {
-    bool checkok = check_joypads_and_robots();
+    bool checkok = check_cmd_vels_and_robots();
     // check state changes
     if (checkok) { // start countdown
       DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN\n");
@@ -978,7 +911,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_countdown() {
-    check_joypads_and_robots();
+    check_cmd_vels_and_robots();
     double time = _countdown.getTimeSeconds();
     // check state changes
     if (time >= 3 + 2.40 && _lakitu_status == LAKITU_LIGHT2) { // start race
@@ -1038,8 +971,8 @@ protected:
       play_sound("last-lap.wav");
     }
 
-    // check joypads
-    if (!check_joypads_and_robots())
+    // check cmd_vels
+    if (!check_cmd_vels_and_robots())
       return true;
 
     // check items
@@ -1057,7 +990,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_race_over() {
-    check_joypads_and_robots();
+    check_cmd_vels_and_robots();
     int x = _lakitu_center.x, y = _lakitu_center.y;
     double time = _countdown.getTimeSeconds();
     if (time <= 3) { // get lakitu down
@@ -1165,7 +1098,7 @@ protected:
 
   // share textures
   std::vector<Texture> _lakitu_status_imgs, _item_imgs, _curse_imgs, _bg_imgs,
-  _joypad_status_imgs, _robot_status_imgs;
+  _cmd_vel_status_imgs, _robot_status_imgs;
 
   // items
   std::string _data_path, _sound_path;
