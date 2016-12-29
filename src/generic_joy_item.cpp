@@ -41,6 +41,7 @@ void joy_cb(const sensor_msgs::Joy::ConstPtr& joy) {
     ROS_INFO("Item button pressed!");
     item_pub.publish(std_msgs::Empty());
   }
+  item_before = item_now;
 } // end joy_cb();
 
 ////////////////////////////////////////////////////////////////////////////////

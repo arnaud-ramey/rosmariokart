@@ -10,6 +10,7 @@ enum GameStatus {
   GAME_STATUS_RACE_OVER = 3, // players cant move anymore
   NGAME_STATUES         = 4
 };
+
 enum Item {
   ITEM_NONE            = 0,
   ITEM_BOO             = 1,
@@ -24,12 +25,14 @@ enum Item {
   ITEM_ROULETTE        = 10,
   NITEMS               = 11
 };
+
 enum Background {
   BG_NONE              = 0,
   BG_ITEMS             = 1,
   BG_GO                = 2,
   NBG                  = 3
 };
+
 enum Curse {
   CURSE_NONE               = 0,
   CURSE_BOO                = 1,
@@ -40,12 +43,13 @@ enum Curse {
   CURSE_MUSHROOM           = 6,
   CURSE_REDSHELL_COMING    = 7,
   CURSE_REDSHELL_HIT       = 8,
-  CURSE_ROCKET_START       = 9, // missed rocket start - http://www.mariowiki.com/Rocket_Start
+  CURSE_ROCKET_START       = 9, // fast start - http://www.mariowiki.com/Rocket_Start
   CURSE_STAR               = 10,
   CURSE_TIMEBOMB_COUNTDOWN = 11,
   CURSE_TIMEBOMB_HIT       = 12,
   NCURSES                  = 13
 };
+
 enum CmdVelStatus {
   CMD_VEL_NEVER_RECEIVED = 0,
   CMD_VEL_OK             = 1,
@@ -53,19 +57,13 @@ enum CmdVelStatus {
   NCMD_VEL_STATUSES      = 5
 };
 
-enum CameraStatus {
-  CAMERA_NEVER_RECEIVED = 0,
-  CAMERA_OK             = 1,
-  NO_CAMERA_AVAILABLE   = 2,
-  CAMERA_TIMEOUT        = 3,
-  NCAMERA_STATUS        = 4
-};
 enum RobotStatus {
   ROBOT_NEVER_RECEIVED = 0,
   ROBOT_OK             = 1,
   ROBOT_TIMEOUT        = 2,
   NROBOT_STATUSES      = 3
 };
+
 enum LakituStatus {
   LAKITU_INVISIBLE      = 0,
   LAKITU_LIGHT0         = 1,

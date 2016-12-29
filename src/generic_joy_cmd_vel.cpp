@@ -47,7 +47,7 @@ void joy_cb(const sensor_msgs::Joy::ConstPtr& joy) {
 
 int main(int argc, char* argv[]) {
   ros::init(argc, argv, "generic_joy_cmd_vel");
-  ros::NodeHandle nh_public, nh_private("~");
+  ros::NodeHandle nh_public;
   // params
   nh_public.param("axis_angular", axis_angular, axis_angular);
   nh_public.param("axis_linear", axis_linear, axis_linear);

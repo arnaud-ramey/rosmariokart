@@ -31,16 +31,17 @@ ________________________________________________________________________________
 #include "rosmariokart/sdl_utils.h"
 
 // third parties
+#include <boost/thread.hpp>
+#include <cv_bridge/cv_bridge.h>
+#include <geometry_msgs/Twist.h>
+#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.h>
+#include <ros/package.h>
 #include <ros/ros.h>
+#include <sensor_msgs/Image.h>
 #include <std_msgs/Empty.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/String.h>
-#include <geometry_msgs/Twist.h>
-#include <image_transport/image_transport.h>
-#include <sensor_msgs/Image.h>
-#include <image_transport/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
-#include <ros/package.h>
 
 class Game {
 public:
@@ -48,7 +49,9 @@ public:
   public:
     Player(Game* game,
            const std::string & name,
-           const unsigned int & player_idx) { // ctor
+           const unsigned int & player_idx)
+      :
+        _rgb_mutex(new boost::mutex()) { // ctor
       _game = game;
       _name = name;
       _player_idx = player_idx;
@@ -56,22 +59,20 @@ public:
       _curse = CURSE_NONE;
       _cmd_vel_status = CMD_VEL_NEVER_RECEIVED;
       _robot_status = ROBOT_NEVER_RECEIVED;
-      _camera_status = CAMERA_NEVER_RECEIVED ;
-      _scale_linear = _scale_angular = 1;
-      _button_deadman = -1;
-      _item_button_before = _sharp_turn_before = false;
+      // rendering stuff
+      force_next_render();
       // determine background color
       switch (player_idx % 4) {
-        case 0:
-          _bgcolor = cv::Vec4i(121, 28, 248, 255); break; // red
-        case 1:
-          _bgcolor = cv::Vec4i(22, 124, 78, 255); break; // green
-        case 2:
-          _bgcolor = cv::Vec4i(233, 109, 20, 255); break; // blue
-        case 3:
-        default:
-          _bgcolor = cv::Vec4i(255, 255, 0, 255); break; // ?
-          break;
+      case 0:
+        _bgcolor = cv::Vec4i(121, 28, 248, 255); break; // red
+      case 1:
+        _bgcolor = cv::Vec4i(22, 124, 78, 255); break; // green
+      case 2:
+        _bgcolor = cv::Vec4i(233, 109, 20, 255); break; // blue
+      case 3:
+      default:
+        _bgcolor = cv::Vec4i(255, 255, 0, 255); break; // ?
+        break;
       }
     }
 
@@ -80,13 +81,13 @@ public:
     void compute_image_locations(int number_of_cols) {
       unsigned int row = _player_idx / number_of_cols,
           col = _player_idx % number_of_cols;
-      _tl_win   = Point2d( col * _game->player_w,
-                           row * _game->player_h );
-      _item_tl_corner.x = (col+1) * _game->player_w - _game->_item_w * 1.1;
-      _item_tl_corner.y = row * _game->player_h + 10;
-      _curse_tl.x = std::min(_tl_win.x + 0.5 * _game->player_w - _game->_item_w/2,
-                             _item_tl_corner.x - _game->_item_w * 1.05) ;
-      _curse_tl.y = _item_tl_corner.y ;
+      _tl_win   = Point2d( col * _game->_player_w,
+                           row * _game->_player_h );
+      _tl_item.x = (col+1) * _game->_player_w - _game->_item_w * 1.1;
+      _tl_item.y = row * _game->_player_h + 10;
+      _tl_curse.x = std::min(_tl_win.x + 0.5 * _game->_player_w - _game->_item_w/2,
+                             _tl_item.x - _game->_item_w * 1.05) ;
+      _tl_curse.y = _tl_item.y ;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -101,70 +102,62 @@ public:
         imgname = "white_sumo_black_bg.png";
       std::string fullfilename = _game->_data_path + std::string("robots/") + imgname;
 
-      double avatar_w = 0.8 * std::min (_game->player_w, _game->player_h);
+      double avatar_w = 0.8 * std::min (_game->_player_w, _game->_player_h);
       if (!_avatar.from_file(_game->_renderer, fullfilename, avatar_w))
         return false;
       // we compute the top left corner to render the avatar centered
-      _tl_avatar.x = _tl_win.x + (_game->player_w - _avatar.get_width()) / 2;
-      _tl_avatar.y = _tl_win.y + (_game->player_h - _avatar.get_height()) / 2;
+      _tl_avatar.x = _tl_win.x + (_game->_player_w - _avatar.get_width()) / 2;
+      _tl_avatar.y = _tl_win.y + (_game->_player_h - _avatar.get_height()) / 2;
       return true;
     }
 
     ////////////////////////////////////////////////////////////////////////////
 
     void create_pub_sub() {
-      // joy params
       ros::NodeHandle nh_public, nh_private("~");
-      nh_public.param(_name + "/axis_angular",_axis_angular, 0);
-      nh_public.param(_name + "/axis_linear",_axis_linear, 1);
-      nh_public.param(_name + "/axis_90turn",_axis_90turn, 4);
-      nh_public.param(_name + "/axis_180turn",_axis_180turn, 5);
-      nh_public.param(_name + "/button_item",_button_item, 7);
-      nh_public.param(_name + "/scale_angular",_scale_angular, 1.0);
-      nh_public.param(_name + "/scale_linear",_scale_linear, 1.0);
-      nh_public.param(_name + "/deadman",_button_deadman, -1);
-      nh_public.param(_name + "/offset_linear",_offset_linear, 0);
-
       // create subscribers
-      _cmd_vel_sub = _game->_nh_public.subscribe
-          (_name + "/cmd_vel", 1, &Player::cmd_vel_cb, this);
-      _item_sub = _game->_nh_public.subscribe
+      _cmd_vel_sub = nh_public.subscribe
+          (_name + "/cmd_vel_raw", 1, &Player::cmd_vel_cb, this);
+      _item_sub = nh_public.subscribe
           (_name + "/item", 1, &Player::item_cb, this);
       bool use_rgb = true;
       nh_private.param("use_rgb",use_rgb, use_rgb);
       if (use_rgb)
         _rgb_sub = _game->_it.subscribe
             (_name + "/image", 1, &Player::rgb_cb, this);
-
       // create publishers
-      _cmd_vel_pub  = _game->_nh_public.advertise<geometry_msgs::Twist>
+      _cmd_vel_pub  = nh_public.advertise<geometry_msgs::Twist>
           (_name + "/cmd_vel", 1);
-      _animation_pub  = _game->_nh_public.advertise<std_msgs::String>
+      _animation_pub  = nh_public.advertise<std_msgs::String>
           (_name + "/animation", 1);
-      _sharp_turn_pub = _game->_nh_public.advertise<std_msgs::Float32>
-          (_name + "/sharp_turn", 1);
     }
 
     ////////////////////////////////////////////////////////////////////////////
 
     const std::string & get_name() const { return _name; }
+    Item get_item() const { return _item; }
+    Curse get_curse() const { return _curse; }
 
     ////////////////////////////////////////////////////////////////////////////
 
     void receive_item(Item i) {
+      Item prev_item = i;
       _item = i;
-      if (i == ITEM_ROULETTE)
+      if (i != prev_item)
+        force_next_render();
+      if (i == ITEM_ROULETTE) {
         _roulette_timer.reset();
+      }
     }
-    Item get_item() const { return _item; }
 
     ////////////////////////////////////////////////////////////////////////////
 
     void update_race() {
       // check items
       if (_item == ITEM_ROULETTE) {
+        force_next_render();
         if (_roulette_timer.getTimeSeconds() > 3) // roulette timeout
-          item_button_cb(true);
+          item_button_cb();
         // rewind sound
         else if (_game->_last_roulette_sound_play.getTimeSeconds() > .782) { // 0.782 seconds
           _game->play_sound("itemreel.wav");
@@ -178,16 +171,13 @@ public:
           && time_curse > .1
           && (time_curse > _game->_curse_timeout[CURSE_REDSHELL_COMING]
               || rand() % 50 == 0)) { // random end time
-        _game->play_sound("cpuspin.wav");
-        play_animation("hit");
-        play_animation_caster(_player_idx, _game->_players, "mock");
-        receive_curse(CURSE_REDSHELL_HIT, _curse_caster_idx);
+        _game->caste_curse(CURSE_REDSHELL_HIT, _curse_caster_idx, _player_idx,
+                           "mock", "hit", "cpuspin.wav");
       }
       else if (_curse == CURSE_TIMEBOMB_COUNTDOWN
                && _game->_timebomb.getTimeSeconds() > 4.935) { // 4.935 seconds
-        play_animation("hit");
-        play_animation_caster(_player_idx, _game->_players, "mock");
-        receive_curse(CURSE_TIMEBOMB_HIT, _curse_caster_idx);
+        _game->caste_curse(CURSE_TIMEBOMB_HIT, _curse_caster_idx, _player_idx,
+                           "mock", "hit");
       }
       else if ((_curse != CURSE_NONE) // whatever curse
                && time_curse > _game->_curse_timeout[_curse]) {
@@ -202,43 +192,71 @@ public:
     //! \return true if everything OK, false otherwise.
     //! If false, the image needs to be displayed
     bool check_cmd_vels_and_robots() {
+      CmdVelStatus prev_cmd_vel_status = _cmd_vel_status;
+      RobotStatus prev_robot_status = _robot_status;
+      bool retval = true;
       // sanity checks: check cmd_vel status
       if (_cmd_vel_status != CMD_VEL_OK)
-        return false;
+        retval = false;
       else if (_last_cmd_vel_updated.getTimeSeconds() > .5) {
-        ROS_WARN("Player %i: cmd_vel_TIMEOUT", _player_idx);
+        ROS_WARN("Player %i: CMD_VEL_TIMEOUT", _player_idx);
         _cmd_vel_status = CMD_VEL_TIMEOUT;
-        return false;
+        retval = false;
       }
       // sanity checks: check robot status
-      if (_cmd_vel_pub.getNumSubscribers())
-        _robot_status = ROBOT_OK;
-      else {
+      if (_cmd_vel_pub.getNumSubscribers() == 0) {
         ROS_WARN("Player %i: ROBOT_TIMEOUT", _player_idx);
         _robot_status = ROBOT_TIMEOUT;
-        return false;
+        retval =false;
       }
-      return true;
+      else {
+        _robot_status = ROBOT_OK;
+      }
+      // force next rendering if needed
+      if (prev_cmd_vel_status != _cmd_vel_status
+          || prev_robot_status != _robot_status)
+        force_next_render();
+      return retval;
     } // end check_cmd_vels_and_robots()
 
     ////////////////////////////////////////////////////////////////////////////
 
+    void force_next_render() { _force_next_render = true; }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    inline Point2d get_tl_win()   const { return _tl_win; }
+    inline Point2d get_tl_item()  const { return _tl_item; }
+    inline Point2d get_tl_curse() const { return _tl_curse; }
+
+    ////////////////////////////////////////////////////////////////////////////
+
     bool render(SDL_Renderer* renderer) {
+      // we always need to render if lakitu is on screen, as it hides players
+      if (_game->_lakitu_status != LAKITU_INVISIBLE)
+        force_next_render();
+      // do not render if not needed
+      if (!_force_next_render)
+        return true;
+      _force_next_render = false;
       // draw colored background
       SDL_SetRenderDrawColor( renderer,
                               _bgcolor[0], _bgcolor[1], _bgcolor[2], _bgcolor[3]);
       SDL_Rect rect;
       rect.x = _tl_win.x;
       rect.y = _tl_win.y;
-      rect.w = _game->player_w;
-      rect.h = _game->player_h;
+      rect.w = _game->_player_w;
+      rect.h = _game->_player_h;
       SDL_RenderFillRect(renderer, &rect);
       //SDL_RenderDrawRect(renderer, &rect); // no need to be filled
 
       // draw image camera if available
       bool ok = true;
-      if (has_rgb()){
-        ok = ok && _rgb.render(renderer, _tl_camview);}
+      if (has_rgb()) {
+        _rgb_mutex->lock();
+        ok = ok && _rgb.render(renderer, _tl_camview);
+        _rgb_mutex->unlock();
+      }
       else{ // we render the avatar
         ok = ok && _avatar.render(renderer, _tl_avatar);
       }
@@ -250,7 +268,7 @@ public:
       // draw cmd_vel status
       if (_cmd_vel_status != CMD_VEL_OK)
         ok = ok && _game->_cmd_vel_status_imgs[_cmd_vel_status].render(renderer,
-                                                                     _tl_win);
+                                                                       _tl_win);
       // draw robot status
       else if (_robot_status != ROBOT_OK)
         ok = ok && _game->_robot_status_imgs[_robot_status ].render(renderer,
@@ -259,27 +277,23 @@ public:
         return ok;
 
       ok = ok && _game->_bg_imgs[BG_ITEMS].render(renderer,
-                                                  Point2d(_item_tl_corner.x-5,_item_tl_corner.y-5)); // Item Background
+                                                  Point2d(_tl_item.x-5,_tl_item.y-5)); // Item Background
 
       //ROS_WARN("Redraw player %i!", i); // do nothing if no cmd_vel or robot
-      if (_cmd_vel_status != CMD_VEL_OK || _robot_status != ROBOT_OK)
-        return ok;
+      //if (_cmd_vel_status != CMD_VEL_OK || _robot_status != ROBOT_OK)
+      // return ok;
 
       if (_curse != CURSE_NONE)
-        ok = ok && _game->_curse_imgs[(int)_curse].render(renderer,_curse_tl);
+        ok = ok && _game->_curse_imgs[(int)_curse].render(renderer,_tl_curse);
       if (_item == ITEM_ROULETTE)
-        ok = ok && _game->_item_imgs[random_item()].render(renderer,_item_tl_corner);
+        ok = ok && _game->_item_imgs[random_item()].render(renderer,_tl_item);
       else if (_item != ITEM_NONE)
-        ok = ok && _game->_item_imgs[_item].render(renderer,_item_tl_corner);
+        ok = ok && _game->_item_imgs[_item].render(renderer,_tl_item);
 
-      int time = _game->_race_duration + 1 - _game->_race_timer.getTimeSeconds();
-      ok = ok && _game->render_countdown2texture(time, 0, 0, 0) // black
-          && _game->_countdown_texture.render_center
-          (renderer, Point2d(_tl_win.x + _game->player_w/5, _tl_win.y+ _game->player_h/6),0.4)
-          && _game->render_countdown2texture(time, 255, 10, 10) // red
-          && _game->_countdown_texture.render_center
-          (renderer, Point2d(_tl_win.x + _game->player_w/5+2, _tl_win.y+ _game->player_h/6+2),0.4);
-      // && _countdown_texture.render_center(renderer, Point2d(_winw/2,_winh/2),0.8);
+      ok = ok && _game->_countdown_texture_black.render_center
+          (renderer, Point2d(_tl_win.x + _game->_player_w/5+2, _tl_win.y+ _game->_player_h/6+2),0.4)
+          && _game->_countdown_texture_red.render_center
+          (renderer, Point2d(_tl_win.x + _game->_player_w/5, _tl_win.y+ _game->_player_h/6),0.4);
       return ok;
     } // end render()
 
@@ -290,7 +304,6 @@ public:
       _curse_timer.reset();
       _curse_caster_idx = curse_caster_;
     }
-    Curse get_curse() const { return _curse; }
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -298,17 +311,6 @@ public:
       std_msgs::String anim;
       anim.data = s;
       _animation_pub.publish(anim);
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    void play_animation_caster(unsigned int self_idx,
-                               std::vector<Player> & players,
-                               const std::string & s) {
-      if (_curse_caster_idx >= nplayers()
-          || self_idx == _curse_caster_idx)
-        return;
-      players[_curse_caster_idx].play_animation(s);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -338,16 +340,14 @@ public:
       else if (_game->_game_status == GAME_STATUS_RACE) {
         if (c == CURSE_DUD_START) {
           v *= .2; // sloowww
-          w += .3 *_scale_angular *
-              cos(5*_game->_race_timer.getTimeSeconds()); // oscillate
+          w += .3 * cos(5*_game->_race_timer.getTimeSeconds()); // oscillate
         }
         else if (c == CURSE_GOLDENMUSHROOM)
           v *= 2; // 200% faster
         else if (c == CURSE_LIGHTNING) {
           //ROS_WARN("%i:CURSE_LIGHTNING!", _player_idx);
           v *= .2; // half speed
-          w += .3 *_scale_angular *
-              cos(5*_game->_race_timer.getTimeSeconds()); // oscillate
+          w += .3 * cos(5*_game->_race_timer.getTimeSeconds()); // oscillate
         }
         else if (c == CURSE_MIRROR) { // inverted commands
           v *= -1;
@@ -387,31 +387,12 @@ public:
 
     ////////////////////////////////////////////////////////////////////////////
 
-    bool sharp_turn_button_cb(double angle_rad,
-                              bool skip_repetition_check = false) {
-      bool retval = false;
-      if (fabs(angle_rad) > 1E-2
-          && (skip_repetition_check || fabs(angle_rad -_sharp_turn_before)>1E-2)) {
-        std_msgs::Float32 msg;
-        msg.data = angle_rad;
-        _sharp_turn_pub.publish(msg);
-        DEBUG_PRINT("Player %i: sharp turn of angle %g rad!\n", _player_idx, angle_rad);
-        retval = true;
-      }
-      _sharp_turn_before = angle_rad;
-      return retval;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    bool item_button_cb(bool skip_repetition_check = false) {
-      DEBUG_PRINT("item_button_cb(%i, %i)\n", _player_idx, skip_repetition_check);
+    bool item_button_cb() {
+      DEBUG_PRINT("item_button_cb(%i)\n", _player_idx);
       if (_game->_game_status != GAME_STATUS_RACE) // nothing to do
         return true;
       // check what to do if Item_button
 
-      if (!skip_repetition_check &&_item_button_before)
-        return false;
       // cleverly find target_player_idx
       unsigned int target_player_idx = (_player_idx + 1) % nplayers(); // safe value
       std::vector<unsigned int> possible_targets;
@@ -438,16 +419,16 @@ public:
 
       // check items
       if (pi == ITEM_BOO) { // swap items
-        //play_sound("boo.wav");
-        _game->play_sound("boosteal.wav");
-        receive_item(ITEM_NONE);
         if (is_real_item(targeti)) {
+          _game->caste_curse(CURSE_BOO, _player_idx, target_player_idx,
+                             "mock", "", "boosteal.wav");
           receive_item(targeti);
           target->receive_item(ITEM_NONE);
-          target->receive_curse(CURSE_BOO, _player_idx);
         }
         else { // nothing to steal -> punish player!
-          receive_curse(CURSE_BOO, _player_idx);
+          _game->caste_curse(CURSE_BOO, _player_idx, _player_idx,
+                             "", "", "boosteal.wav");
+          receive_item(ITEM_NONE);
         }
       }
       else if (pi == ITEM_GOLDENMUSHROOM) {
@@ -456,20 +437,16 @@ public:
         receive_curse(CURSE_GOLDENMUSHROOM, _player_idx);
       }
       else if (pi == ITEM_LIGHTNING) {
-        _game->play_sound("lightning.wav");
         receive_item(ITEM_NONE);
-        if (targetc != CURSE_STAR) { // do nothing if target has star
-          target->receive_curse(CURSE_LIGHTNING, _player_idx);
-          play_animation("mock");
-        }
+        if (targetc != CURSE_STAR) // do nothing if target has star
+          _game->caste_curse(CURSE_LIGHTNING, _player_idx, target_player_idx,
+                             "mock", "", "lightning.wav");
       }
       else if (pi == ITEM_MIRROR) {
-        _game->play_sound("quartz.wav");
         receive_item(ITEM_NONE);
-        if (targetc != CURSE_STAR) { // do nothing if target has star
-          target->receive_curse(CURSE_MIRROR, _player_idx);
-          play_animation("mock");
-        }
+        if (targetc != CURSE_STAR) // do nothing if target has star
+          _game->caste_curse(CURSE_MIRROR, _player_idx, target_player_idx,
+                             "mock", "", "quartz.wav");
       }
       else if (pi == ITEM_MUSHROOM) {
         _game->play_sound("boost.wav");
@@ -477,9 +454,9 @@ public:
         receive_curse(CURSE_MUSHROOM, _player_idx);
       }
       else if (pi == ITEM_REDSHELL || pi == ITEM_REDSHELL2 || pi == ITEM_REDSHELL3) {
-        _game->play_sound("cputhrow.wav");
         if (targetc != CURSE_STAR) // do nothing if target has star
-          target->receive_curse(CURSE_REDSHELL_COMING, _player_idx);
+          _game->caste_curse(CURSE_REDSHELL_COMING, _player_idx, target_player_idx,
+                             "", "", "cputhrow.wav");
         if (pi == ITEM_REDSHELL) // decrease red shell counter
           receive_item(ITEM_NONE);
         else if (pi == ITEM_REDSHELL2)
@@ -505,7 +482,6 @@ public:
         }
       } // end if ROULETTE
 
-      _item_button_before = true;
       return true;
     } // end item_button_cb()
 
@@ -527,22 +503,26 @@ public:
     ////////////////////////////////////////////////////////////////////////////
 
     void rgb_cb(const sensor_msgs::ImageConstPtr& rgb) {
-      if (!_rgb.from_ros_image(_game->_renderer, *rgb,
-                               _game->player_w, _game->player_h)) {
+      _rgb_mutex->lock();
+      bool ok = _rgb.from_ros_image(_game->_renderer, *rgb,
+                                    _game->_player_w, _game->_player_h);
+      _rgb_mutex->unlock();
+      if (!ok) {
         ROS_WARN("Texture::from_ros_image() failed!");
         return;
       }
-      int paddingx = _game->player_w - _rgb._width;
+      force_next_render();
+      int paddingx = _game->_player_w - _rgb._width;
       _tl_camview.x = _tl_win.x + paddingx/2;
       //update of the _tl_camview in order to center the video image
-      if (_game->player_w ==_rgb._width){ // Image has been scaled to max width
+      if (_game->_player_w ==_rgb._width){ // Image has been scaled to max width
         _tl_camview.x =_tl_win.x;
-        int paddingy = _game->player_h -_rgb._height;
+        int paddingy = _game->_player_h -_rgb._height;
         _tl_camview.y =_tl_win.y + paddingy/2;
       }
       else{ // Image has been scaled to max height
         _tl_camview.y =_tl_win.y;
-        int paddingx = _game->player_w -_rgb._width;
+        int paddingx = _game->_player_w -_rgb._width;
         _tl_camview.x =_tl_win.x + paddingx/2;
       }
     } // end rgb_cb()
@@ -552,26 +532,87 @@ public:
     Game* _game;
     std::string _name;
     unsigned int _player_idx;
-    Point2d _item_tl_corner, _curse_tl, _tl_win, _tl_camview, _tl_avatar;
     Item _item;
     Curse _curse;
     CmdVelStatus _cmd_vel_status;
-    int _axis_linear, _axis_angular, _axis_90turn, _axis_180turn, _button_item,
-    _button_deadman, _offset_linear;
     RobotStatus _robot_status;
-    CameraStatus _camera_status;
-    bool _sharp_turn_before, _item_button_before;
-    double _scale_angular, _scale_linear;
     Timer _curse_timer, _roulette_timer, _last_cmd_vel_updated;
     unsigned int _curse_caster_idx;
 
+    // rendering stuff
+    bool _force_next_render;
+    Point2d _tl_item, _tl_curse, _tl_win, _tl_camview, _tl_avatar;
     Texture _avatar, _rgb;
+    boost::shared_ptr<boost::mutex> _rgb_mutex;
     cv::Vec4i _bgcolor;
     // ROS data
     ros::Subscriber _cmd_vel_sub, _item_sub;
     image_transport::Subscriber _rgb_sub;
-    ros::Publisher _cmd_vel_pub, _sharp_turn_pub, _animation_pub;
-  }; // end struct Player //////////////////////////////////////////////////////
+    ros::Publisher _cmd_vel_pub, _animation_pub;
+  }; // end class Player //////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  class FlyingCurse {
+  public:
+    FlyingCurse(Game* game) : _game(game) {}
+
+    void create(Curse curse,
+                Point2d pbegin, Point2d pend,
+                double traveltime = 1) {
+      _pbegin = pbegin;
+      _pend = pend;
+      _curse = curse;
+      _traveltime = traveltime;
+      _life_timer.reset();
+    }
+
+    //! version between two players: the caster (item) and the receiver (curse)
+    void create(Curse curse,
+                int caster_idx, int receiver_idx,
+                double traveltime = 1) {
+      create(curse, _game->_players[caster_idx].get_tl_item(),
+             _game->_players[receiver_idx].get_tl_curse(),
+             traveltime);
+    }
+
+    bool render(SDL_Renderer* renderer) {
+      if (is_over())
+        return true; // nothing to do
+      double t = _life_timer.getTimeSeconds();
+      Point2d curr;
+      curr.x = t * _pend.x + (1-t) * _pbegin.x;
+      curr.y = t * _pend.y + (1-t) * _pbegin.y;
+      Texture* tex = &(_game->_curse_imgs[_curse]);
+      return tex->render(renderer, curr);
+
+      // force_hidden_players_render
+      unsigned int nplayers = _game->_nplayers;
+      int iw = _game->_item_w, pw = _game->_player_w, ph = _game->_player_h;
+      for (unsigned int i = 0; i < nplayers; ++i) {
+        Point2d tl = _game->_players[i].get_tl_win();
+        if (curr.x + iw < tl.x // too much at the left, no overlap
+            || curr.x > tl.x + pw // at the right, no overlap
+            || curr.y + iw < tl.y // on top, no overlap
+            || curr.y > tl.y + ph) // at the bottom, no overlap
+          continue;
+        ROS_WARN("Item %i: forcing next render of player %i", _curse, i);
+        _game->_players[i].force_next_render();
+      } // end for i
+    } // end render()
+
+    inline bool is_over() const {
+      return _life_timer.getTimeSeconds() > _traveltime;
+    }
+
+  protected:
+    Game* _game;
+    Curse _curse;
+    Timer _life_timer;
+    double _traveltime;
+    Point2d _pbegin, _pend;
+  }; // end class FlyingCurse
+
   //////////////////////////////////////////////////////////////////////////////
 
   Game() : _nh_private("~"), _it(_nh_public) {
@@ -601,29 +642,6 @@ public:
     _nh_private.param("curse_star_timeout", _curse_timeout[CURSE_STAR], 3.130);
     _nh_private.param("curse_timebomb_hit_timeout", _curse_timeout[CURSE_TIMEBOMB_HIT], 3.);
 
-    // Initiate the list of players....
-    int i=0;
-    while (true) {
-      std::ostringstream oss;
-      oss << i+1;
-      std::string text = "player"+oss.str()+"_name";
-
-      std::string name;
-      _nh_private.param( text, name, std::string(""));
-      if (name.empty())
-        break;
-      Player p(this, name, i);
-      _players.push_back(p);
-      i++;
-    }//end while add players
-
-    _nplayers = _players.size();
-
-    for (unsigned int i = 0; i < _nplayers; ++i) {
-      Player* p = &(_players[i]);
-      p->create_pub_sub();
-    }
-
     // init SDL
     if ( SDL_Init( SDL_INIT_EVERYTHING ) == -1 ) {
       std::cout << " Failed to initialize SDL : " << SDL_GetError() << std::endl;
@@ -645,15 +663,16 @@ public:
       printf( "SDL_ttf could not initialize! SDL_ttf Error: %s", TTF_GetError() );
       return false;
     }
+
     // create window
     SDL_Rect windowRect = { 10, 10, _winw, _winh};
-    window = SDL_CreateWindow( "cars", windowRect.x, windowRect.y, _winw, _winh, 0 );
-    if ( window == NULL ) {
+    _window = SDL_CreateWindow( "cars", windowRect.x, windowRect.y, _winw, _winh, 0 );
+    if ( _window == NULL ) {
       std::cout << "Failed to create window : " << SDL_GetError();
       return false;
     }
     // create renderer
-    _renderer = SDL_CreateRenderer( window, -1, 0 );
+    _renderer = SDL_CreateRenderer( _window, -1, 0 );
     if ( _renderer == NULL ) {
       std::cout << "Failed to create renderer : " << SDL_GetError();
       return false;
@@ -663,10 +682,44 @@ public:
     // Set color of renderer to light_blue
     SDL_SetRenderDrawColor( _renderer, 150, 150, 255, 255 );
 
-    // alloc data
+    // create the list of players that have a name
+    int i=0;
+    while (true) {
+      std::ostringstream param_name;
+      param_name << "player" << i+1 << "_name";
+      std::string name = "";
+      _nh_private.param( param_name.str(), name, name);
+      if (name.empty())
+        break;
+      Player p(this, name, i);
+      _players.push_back(p);
+      i++;
+    }//end while add players
+    _nplayers = _players.size();
+
+    // configure GUI depending on the numbers of player and of the number of col
+    int n_line = ceilf(1.*_nplayers/_number_of_cols);
+    int n_col= std::min(_number_of_cols, (int) _nplayers);
+    ROS_WARN("%i players in a GUI of (%i x %i)\n", _nplayers, n_line,n_col);
+    _player_w = _winw/n_col;
+    _player_h = _winh/n_line;
+    _item_w = std::min(_winw/(4*n_col), _winh/(4*n_line));
+
+    // init the players
     _data_path = ros::package::getPath("rosmariokart") + std::string("/data/");
-    _sound_path =  _data_path + std::string("sounds/");
+    for (unsigned int i = 0; i < _nplayers; ++i) {
+      Player* p = &(_players[i]);
+      p->create_pub_sub();
+      p->compute_image_locations(_number_of_cols);
+      p->load_avatar();
+    }
+
+    // load items - requires the renderer to be ready and _item_w to be computed
+    if (!load_items(_item_w)){
+      ROS_WARN("from init(): Error loading item images");
+    }
     // load music and sounds
+    _sound_path =  _data_path + std::string("sounds/");
     // WAVE, MOD, MIDI, OGG, MP3, FLAC
     // sox cocoa_river.ogg -r 22050 cocoa_river.wav
     if( !(_music = Mix_LoadMUS( (_sound_path + "battle-mode.mp3").c_str() )) ) {
@@ -674,6 +727,7 @@ public:
       return false;
     }
     Mix_VolumeMusic(128);
+
     //Open the time font
     _countdown_font = TTF_OpenFont( (_data_path + "fonts/LCD2U___.TTF").c_str(), _winh / 4);
     if( _countdown_font == NULL ) {
@@ -682,23 +736,6 @@ public:
     }
     _last_renderer_countdown_time = -1;
 
-    // configure GUI depending on the numbers of player and of the number of col
-    int n_line = ceilf(1.*_nplayers/_number_of_cols);
-    int n_col= std::min(_number_of_cols, (int) _nplayers);
-    ROS_WARN("%i players in a GUI of (%i x %i)\n", _nplayers, n_line,n_col);
-    player_w = _winw/n_col;
-    player_h = _winh/n_line;
-    _item_w = std::min(_winw/(4*n_col), _winh/(4*n_line));
-
-    // put robot background (used when no camera available)
-    for (unsigned int i = 0; i < _nplayers; ++i) {
-      _players[i].compute_image_locations(_number_of_cols);
-      _players[i].load_avatar();
-    }
-
-    if (! load_items(_item_w)){
-      ROS_WARN("from init(): Error loading item images");
-    }
     return restart_race();
   }
 
@@ -839,25 +876,43 @@ public:
     } // end while ( SDL_PollEvent( &event ) )
 
     switch (_game_status) {
-      case GAME_STATUS_WAITING:
-        return update_waiting();
-      case GAME_STATUS_COUNTDOWN:
-        return update_countdown();
-      case GAME_STATUS_RACE:
-        return update_race();
-      case GAME_STATUS_RACE_OVER:
-      default:
-        return update_race_over();
+    case GAME_STATUS_WAITING:
+      return update_waiting();
+    case GAME_STATUS_COUNTDOWN:
+      return update_countdown();
+    case GAME_STATUS_RACE:
+      return update_race();
+    case GAME_STATUS_RACE_OVER:
+    default:
+      return update_race_over();
     }
   } // end update()
 
   //////////////////////////////////////////////////////////////////////////////
 
+  bool create_render_thread() {
+    _render_thread = boost::thread(boost::bind(&Game::render_thread, this));
+    return true;
+  }
+
+  void render_thread() {
+    ros::Rate rate(15); // 15 fps
+    while (ros::ok()) {
+      render();
+      rate.sleep();
+    }
+  } // end render_thread();
+
   bool render() {
     DEBUG_PRINT("render()-%g s!\n", _race_timer.getTimeSeconds());
     SDL_SetRenderDrawColor( _renderer, 150, 150, 255, 255 ); // light blue background
-    //SDL_RenderClear( renderer );
     bool ok = true;
+
+    // render time
+    if (_game_status == GAME_STATUS_RACE) {
+      int time = _race_duration + 1 - _race_timer.getTimeSeconds();
+      ok = ok && render_countdown2texture(time);
+    }
     // render each player
     for (unsigned int i = 0; i < _nplayers; ++i)
       ok = ok && _players[i].render(_renderer);
@@ -866,12 +921,22 @@ public:
       ok = ok && _lakitu.render(_renderer);
     } // end GAME_STATUS_COUNTDOWN
 
-    if (_game_status == GAME_STATUS_RACE) {
+    else if (_game_status == GAME_STATUS_RACE) {
+      // render flying curses
+      for (unsigned int i = 0; i < _flying_curses.size(); ++i) {
+        if (_flying_curses[i].is_over()) {
+          _flying_curses.erase(_flying_curses.begin() + i);
+          --i;
+          continue;
+        }
+        ok = ok && _flying_curses[i].render(_renderer);
+      } // end for i
+
       if (_lakitu_status == LAKITU_LIGHT3) // show lakitu going upwards
         ok = ok && _lakitu.render(_renderer);
     } // end GAME_STATUS_RACE
 
-    if (_game_status == GAME_STATUS_RACE_OVER) {
+    else if (_game_status == GAME_STATUS_RACE_OVER) {
       ok = ok && _lakitu.render(_renderer);
     } // end GAME_STATUS_RACE_OVER
 
@@ -884,11 +949,12 @@ protected:
   //! \return true if everything OK, false otherwise.
   //! If false, the image needs to be displayed
   bool check_cmd_vels_and_robots() {
+    bool retval = true;
     for (unsigned int player_idx = 0; player_idx < _nplayers; ++player_idx) {
       if (!_players[player_idx].check_cmd_vels_and_robots())
-        return false;
-    } // end for _player_idx
-    return true;
+        retval = false;
+    }
+    return retval;
   } // end check_cmd_vels_and_robots()
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1010,6 +1076,8 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool play_sound(const std::string & filename) {
+    if (filename.empty())
+      return true;
     std::map<std::string, Mix_Chunk*>::iterator it = _chunks.find(filename);
     Mix_Chunk* chunk = it->second;
     if (it == _chunks.end()) {
@@ -1027,14 +1095,42 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   //!\return true if render OK or already done // This functionnality has been
-  //!\ remove in order to have double color timer (for visibility)
-  bool render_countdown2texture(const int time, int r, int g, int b) {
-    //~ if (_last_renderer_countdown_time == time) ;
-    //~ return true;
+  //! updated in order to have double color timer (for visibility)
+  bool render_countdown2texture(const int time) {
+    if (_last_renderer_countdown_time == time)
+      return true;
     std::ostringstream time_str; time_str << time;
     _last_renderer_countdown_time = time;
-    return _countdown_texture.loadFromRenderedText(_renderer, _countdown_font,
-                                                   time_str.str(), r, g, b);
+    if (!_countdown_texture_red.loadFromRenderedText
+        (_renderer, _countdown_font, time_str.str(), 255, 0, 0)
+        || !_countdown_texture_black.loadFromRenderedText
+        (_renderer, _countdown_font, time_str.str(), 9, 0, 0))
+      return false;
+    // force next rendering for all players
+    for (unsigned int i = 0; i < _nplayers; ++i)
+      _players[i].force_next_render();
+    return true;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  bool caste_curse(Curse curse,
+                   unsigned int caster_idx, unsigned int receiver_idx,
+                   std::string caster_anim = "",
+                   std::string receiver_anim = "",
+                   std::string sound = "") {
+    FlyingCurse fcurse(this);
+    fcurse.create(curse, caster_idx, receiver_idx);
+    _flying_curses.push_back(fcurse);
+    // nothing to do on _players[caster_idx]
+    _players[receiver_idx].receive_curse(curse, caster_idx);
+    // play animation
+    if (!caster_anim.empty() && caster_idx < _nplayers && receiver_idx != caster_idx)
+      _players[caster_idx].play_animation(caster_anim);
+    if (!receiver_anim.empty() && receiver_idx < _nplayers && receiver_idx != caster_idx)
+      _players[receiver_idx].play_animation(receiver_anim);
+    // play sound
+    return play_sound(sound);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1065,9 +1161,6 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
 
-  SDL_Window* window;
-  SDL_Renderer* _renderer;
-  int _winw, _winh, _number_of_cols;
   unsigned int _nplayers;
   std::vector<Player> _players;
   GameStatus _game_status;
@@ -1075,36 +1168,41 @@ protected:
   Timer _last_roulette_sound_play, _timebomb, _last_roulette, _countdown, _race_timer;
   Timer::Time _race_duration;
   bool _last_lap_played;
+  LakituStatus _lakitu_status;
 
   // ros stuff
   ros::NodeHandle _nh_public, _nh_private;
-  //See later for dding subscription to image sent by camera using image_transport
+  // allows subscription to image sent by camera using image_transport
   image_transport::ImageTransport _it;
 
   // sound stuff
   std::map<std::string, Mix_Chunk*> _chunks;
   Mix_Music *_music;
 
-  // opencv stuff
-  LakituStatus _lakitu_status;
+  // rendering stuff
+  boost::thread _render_thread;
+  Timer _last_render;
+  SDL_Window* _window;
+  SDL_Renderer* _renderer;
+  int _winw, _winh, _number_of_cols;
+  int _item_w;  // size of item icon, pixels
+  int _player_w, _player_h; // size of player windows, pixels
   Point2d _lakitu_center ;
   Entity _lakitu;
 
   // time display stuff
-
   TTF_Font *_countdown_font;
   int _last_renderer_countdown_time;
-  Texture _countdown_texture;
+  Texture _countdown_texture_red, _countdown_texture_black;
 
-  // share textures
+  // shared textures
+  std::string _data_path, _sound_path;
   std::vector<Texture> _lakitu_status_imgs, _item_imgs, _curse_imgs, _bg_imgs,
   _cmd_vel_status_imgs, _robot_status_imgs;
 
   // items
-  std::string _data_path, _sound_path;
-  int _item_w;  // pixels
-  int player_w, player_h; // size of player windows
   std::vector<double> _curse_timeout;
+  std::vector<FlyingCurse> _flying_curses;
 }; // end class Game
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1114,34 +1212,24 @@ int main(int argc, char** argv) {
   srand(time(NULL));
   srand48(time(NULL));
   Game game;
-
   if (!game.init()) {
     ROS_ERROR("game.init() failed!");
     return false;
   }
+  if (!game.create_render_thread()) {
+    ROS_ERROR("game.create_render_thread() failed!");
+    return false;
+  }
   ros::Rate update_rate(25);
-  Timer last_render;
-
   while (ros::ok()) {
     if (!game.update()) {
       ROS_ERROR("game.update() failed!");
       return false;
     }
-    if (last_render.getTimeSeconds() > 0.06) { // 15 Hz
-      if (!game.render()) {
-        ROS_ERROR("game.render() failed!");
-        return false;
-      }
-      last_render.reset();
-    }
-
     ros::spinOnce();
-
     if (!update_rate.sleep()){
       // ROS_WARN(" Main Cycle Rate non respected");
     }
-
   } // end while (ros::ok())
-
   return (game.clean() ? 0 : -1);
 }

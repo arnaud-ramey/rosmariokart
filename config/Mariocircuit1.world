@@ -77,25 +77,25 @@ floorplan
 # throw in the robots
 sumo_robot(
   pose [ 5.90 -1.800 0.000 90.000 ]
-  sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
+  #~ sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
   name "sumo1"
   color "red"
 )
 sumo_robot(
   pose [ 6.50 -1.800 0.000 90.000 ]
-  sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
+  #~ sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
   name "sumo2"
   color "green"
 )
 sumo_robot(
   pose [ 5.90 -2.500 0.000 90.000 ]
-  sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
+  #~ sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
   name "sumo3"
   color "blue"
 )
 sumo_robot(
   pose [ 6.50 -2.500 0.000 90.000 ]
-  sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
+  #~ sumocam( pose [0.3 0 0.07 0] ) # specify the pose of the model in its parent's coordinate system
   name "sumo4"
   color "white"
 )
