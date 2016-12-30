@@ -1,0 +1,12 @@
+<launch>
+<arg name="robot"     default="rossumo" />
+<arg name="device"    default="/dev/input/js0" />
+<group ns="$(arg robot)">
+  <!-- send a constant speed -->
+  <node pkg="rostopic" type="rostopic" name="cmdvel"
+        output="screen" args="pub  --rate 25  cmd_vel_raw  geometry_msgs/Twist '{linear: {x: 1}, angular: {z: 0}}'" />
+  <!-- press the item button regularly -->
+  <node pkg="rostopic" type="rostopic" name="item"
+        output="screen" args="pub  --rate .5  item  std_msgs/Empty" />
+</group>
+</launch>
