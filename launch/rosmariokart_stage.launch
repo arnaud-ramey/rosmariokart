@@ -37,7 +37,7 @@
 <!-- "dummy", "null", "sog", "tesun", "thrustmaster_dual_analog_4", "wii" -->
 <include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
   <arg name="robot"   default="robot_0" />
-  <arg name="device"  default="/dev/input/js1" />
+  <arg name="device"  default="/dev/input/js0" />
 </include>
 <include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
   <arg name="robot"   default="robot_0" />
@@ -46,7 +46,7 @@
 <!-- second joystick -->
 <include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
   <arg name="robot"   default="robot_1" />
-  <arg name="device"  default="/dev/input/js2" />
+  <arg name="device"  default="/dev/input/js1" />
 </include>
 <include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
   <arg name="robot"   default="robot_1" />

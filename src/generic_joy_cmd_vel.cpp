@@ -26,7 +26,7 @@ A simple node for teleoperating the Sumo
 #include <geometry_msgs/Twist.h>
 #include <ros/ros.h>
 
-int axis_linear = -1, axis_angular = -1;
+int axis_linear = -1, axis_angular = -1, min_naxes_exp;
 double scale_linear = 1.0, scale_angular = 1.0;
 double offset_linear = 0.0, offset_angular = 0.0;
 ros::Publisher cmd_vel_pub;
@@ -35,10 +35,15 @@ ros::Publisher cmd_vel_pub;
 
 void joy_cb(const sensor_msgs::Joy::ConstPtr& joy) {
   int naxes = joy->axes.size();
+  if (naxes <= min_naxes_exp) {
+    ROS_WARN_THROTTLE(1, "Got a joy message with %i axes while expecting at least %i",
+                      naxes, min_naxes_exp);
+    return;
+  }
   geometry_msgs::Twist vel;
-  if (0 <= axis_linear && axis_linear < naxes)
+  if (0 <= axis_linear)
     vel.linear.x = ((joy->axes[axis_linear]-offset_linear) * scale_linear);
-  if (0 <= axis_angular && axis_angular < naxes)
+  if (0 <= axis_angular)
     vel.angular.z = ((joy->axes[axis_angular]-offset_angular) * scale_angular);
   cmd_vel_pub.publish(vel);
 } // end joy_cb();
@@ -55,6 +60,7 @@ int main(int argc, char* argv[]) {
   nh_public.param("offset_linear", offset_linear, offset_linear);
   nh_public.param("scale_angular", scale_angular, scale_angular);
   nh_public.param("scale_linear", scale_linear, scale_linear);
+  min_naxes_exp = std::max(axis_linear, axis_angular) + 1;
   // subscribers
   ros::Subscriber joy_sub = nh_public.subscribe<sensor_msgs::Joy>("joy", 1,  joy_cb);
   // publishers

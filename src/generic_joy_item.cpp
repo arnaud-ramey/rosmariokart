@@ -34,6 +34,11 @@ ros::Publisher item_pub;
 
 void joy_cb(const sensor_msgs::Joy::ConstPtr& joy) {
   int nbuttons = joy->buttons.size();
+  if (nbuttons <= button_item+1) {
+    ROS_WARN_THROTTLE(1, "Got a joy message with %i buttons while expecting at least %i",
+                      nbuttons, button_item+1);
+    return;
+  }
   // jumps
   bool item_now = (button_item >=0 && nbuttons > button_item
                    && joy->buttons[button_item]);

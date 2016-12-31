@@ -55,13 +55,6 @@ public:
       _game = game;
       _name = name;
       _player_idx = player_idx;
-      _item = ITEM_NONE;
-      _curse = CURSE_NONE;
-      _twist_status = TWIST_NEVER_RECEIVED;
-      _item_button_status = ITEM_BUTTON_NEVER_RECEIVED;
-      _robot_status = ROBOT_NEVER_RECEIVED;
-      // rendering stuff
-      force_next_render();
       // determine background color
       switch (player_idx % 4) {
         case 0:
@@ -75,7 +68,21 @@ public:
           _bgcolor = cv::Vec4i(255, 255, 0, 255); break; // ?
           break;
       }
+      reset();
     }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    void reset() {
+      _item = ITEM_NONE;
+      _curse = CURSE_NONE;
+      _twist_status = TWIST_NEVER_RECEIVED;
+      _item_button_status = ITEM_BUTTON_NEVER_RECEIVED;
+      _robot_status = ROBOT_NEVER_RECEIVED;
+      // rendering stuff
+      force_next_render();
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -146,8 +153,11 @@ public:
       if (i != _item)
         force_next_render();
       _item = i;
-      if (i == ITEM_ROULETTE)
+      if (i == ITEM_ROULETTE) {
+        _game->play_sound("itemreel.wav");
+        _game->_last_roulette_sound_play.reset();
         _roulette_timer.reset();
+      }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -159,7 +169,8 @@ public:
         if (_roulette_timer.getTimeSeconds() > 3) // roulette timeout
           item_button_cb();
         // rewind sound
-        else if (_game->_last_roulette_sound_play.getTimeSeconds() > .782) { // 0.782 seconds
+        else if (_game->_theme_name == "supermariokart"
+                 && _game->_last_roulette_sound_play.getTimeSeconds() > .782) { // 0.782 seconds
           _game->play_sound("itemreel.wav");
           _game->_last_roulette_sound_play.reset();
         }
@@ -267,17 +278,17 @@ public:
       // draw twist status
       Point2d pcenter = _tl_win + Point2d(_game->_player_w / 2, _game->_player_h / 2);
       if (_twist_status != TWIST_OK) {
-        ROS_WARN("Rendering twist status %i", _twist_status);
+        DEBUG_PRINT("Rendering twist status %i", _twist_status);
         ok = ok && _game->_twist_status_imgs[_twist_status].render_center(renderer, pcenter);
       }
       // draw robot status
       else if (_robot_status != ROBOT_OK) {
-        ROS_WARN("Rendering robot status %i", _robot_status);
+        DEBUG_PRINT("Rendering robot status %i", _robot_status);
         ok = ok && _game->_robot_status_imgs[_robot_status ].render_center(renderer, pcenter);
       }
       // draw item_button status
       else if (_item_button_status != ITEM_BUTTON_OK) {
-        ROS_WARN("Rendering press_item");
+        DEBUG_PRINT("Rendering press_item");
         ok = ok && _game->_press_item.render_center(renderer, pcenter);
       }
 
@@ -342,6 +353,7 @@ public:
           } else if (_game->_countdown.getTimeSeconds() < 3+2.2) { // earlier than 200ms before green light -> dud start
             DEBUG_PRINT("Player %i: dud start!\n", _player_idx);
             receive_curse(CURSE_DUD_START, _player_idx);
+            _game->play_sound("anvil.wav");
           }
         } // end fabs(v) > .1
         v = w = 0; // can't move during countdown!
@@ -424,7 +436,7 @@ public:
       // check curses
       if (pc == CURSE_TIMEBOMB_COUNTDOWN) { // passing timebomb
         if (targetc != CURSE_STAR) { // do nothing if target has star
-          _game->play_sound("menumove.wav");
+          _game->play_sound("timebomb_pass.wav");
           receive_curse(CURSE_NONE, _player_idx);
           target->receive_curse(CURSE_TIMEBOMB_COUNTDOWN, _player_idx);
         }
@@ -434,18 +446,18 @@ public:
       if (pi == ITEM_BOO) { // swap items
         if (is_real_item(targeti)) {
           _game->_flying_curses.push_back(FlyingCurse(_game, CURSE_BOO, _player_idx, target_player_idx,
-                                                      "mock", "", "boosteal.wav"));
+                                                      "mock", "", "boo.wav"));
           receive_item(targeti);
           target->receive_item(ITEM_NONE);
         }
         else { // nothing to steal -> punish player!
           _game->_flying_curses.push_back(FlyingCurse(_game, CURSE_BOO, _player_idx, _player_idx,
-                                                      "", "", "boosteal.wav"));
+                                                      "", "", "boo.wav"));
           receive_item(ITEM_NONE);
         }
       }
       else if (pi == ITEM_GOLDENMUSHROOM) {
-        _game->play_sound("boost.wav");
+        _game->play_sound("mushroom.wav");
         receive_item(ITEM_NONE);
         receive_curse(CURSE_GOLDENMUSHROOM, _player_idx);
       }
@@ -462,7 +474,7 @@ public:
                                                       "mock", "", "quartz.wav"));
       }
       else if (pi == ITEM_MUSHROOM) {
-        _game->play_sound("boost.wav");
+        _game->play_sound("mushroom.wav");
         receive_item(ITEM_NONE);
         receive_curse(CURSE_MUSHROOM, _player_idx);
       }
@@ -470,8 +482,8 @@ public:
         if (targetc != CURSE_STAR) // do nothing if target has star
           _game->_flying_curses.push_back(FlyingCurse(_game,
                                                       CURSE_REDSHELL_HIT, _player_idx, target_player_idx,
-                                                      "mock", "hit", "cputhrow.wav", "cpuspin.wav",
-                                                      1. + drand48() * 2.));
+                                                      "mock", "hit", "redshell_throw.wav", "redshell_hit.wav",
+                                                      .2 + drand48() * 2.));
         if (pi == ITEM_REDSHELL) // decrease red shell counter
           receive_item(ITEM_NONE);
         else if (pi == ITEM_REDSHELL2)
@@ -480,7 +492,7 @@ public:
           receive_item(ITEM_REDSHELL2);
       }
       else if (pi == ITEM_STAR) {
-        _game->play_sound("starman.wav");
+        _game->play_sound("star.wav");
         receive_item(ITEM_NONE);
         receive_curse(CURSE_STAR, _player_idx);
       }
@@ -503,7 +515,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
 
     void twist_cb(const geometry_msgs::Twist::ConstPtr& twist) {
-      if (_twist_status == TWIST_NEVER_RECEIVED)
+      if (_twist_status != TWIST_OK)
         force_next_render();
       _twist_status = TWIST_OK;
       _last_twist_updated.reset();
@@ -666,7 +678,6 @@ public:
 
     // item params
     _curse_timeout.resize(NCURSES, 10);
-
     _nh_private.param("curse_boo_timeout", _curse_timeout[CURSE_BOO], 3.);
     _nh_private.param("curse_dud_start_timeout", _curse_timeout[CURSE_DUD_START], 3.);
     _nh_private.param("curse_goldenmushroom_timeout", _curse_timeout[CURSE_GOLDENMUSHROOM], 3.);
@@ -736,7 +747,7 @@ public:
     // configure GUI depending on the numbers of player and of the number of col
     int n_line = ceilf(1.*_nplayers/_number_of_cols);
     int n_col= std::min(_number_of_cols, (int) _nplayers);
-    ROS_WARN("%i players in a GUI of (%i x %i)\n", _nplayers, n_line,n_col);
+    DEBUG_PRINT("%i players in a GUI of (%i x %i)\n", _nplayers, n_line,n_col);
     _player_w = _winw/n_col;
     _player_h = _winh/n_line;
     _item_w = std::min(_winw/(4*n_col), _winh/(4*n_line));
@@ -751,18 +762,13 @@ public:
     }
 
     // load items - requires the renderer to be ready and _item_w to be computed
+    _theme_name = "supertuxkart";
+    _nh_private.param("theme_name", _theme_name, _theme_name);
     if (!load_items(_item_w)){
       ROS_WARN("from init(): Error loading item images");
     }
     // load music and sounds
-    _sound_path =  _data_path + std::string("sounds/");
-    // WAVE, MOD, MIDI, OGG, MP3, FLAC
-    // sox cocoa_river.ogg -r 22050 cocoa_river.wav
-    if( !(_music = Mix_LoadMUS( (_sound_path + "battle-mode.mp3").c_str() )) ) {
-      ROS_ERROR( "Failed to load music! SDL_mixer Error: %s", Mix_GetError() );
-      return false;
-    }
-    Mix_VolumeMusic(128);
+    _sound_path =  _data_path + std::string("sounds/") + _theme_name + "/";
 
     //Open the time font
     _countdown_font = TTF_OpenFont( (_data_path + "fonts/LCD2U___.TTF").c_str(), _winh / 4);
@@ -782,11 +788,9 @@ public:
   bool load_items(int item_size) {
     this->_item_imgs.resize(NITEMS);
     bool ok = true;
-    std::string theme_name = "supertuxkart";
-    _nh_private.param("theme_name", theme_name, theme_name);
 
     // load Items Background
-    std::string item_path = _data_path + "/items/" + theme_name + "/";
+    std::string item_path = _data_path + "/items/" + _theme_name + "/";
     ok = ok && _item_bg_img.from_file(_renderer, item_path + "Item_BG.png", item_size + 10);
 
     ok = ok && _item_imgs[ITEM_BOO].from_file(_renderer, item_path + "Boo.png", item_size);
@@ -825,17 +829,18 @@ public:
     ok = ok && _robot_status_imgs[ROBOT_NEVER_RECEIVED].from_file(_renderer, _data_path + "warnings/robotWarning.png", status_size);
     ok = ok && _robot_status_imgs[ROBOT_TIMEOUT].from_file(_renderer, _data_path + "warnings/robotWarning.png", status_size);
     // load lakitu statuses
+    std::string lakitu_path = _data_path + "lakitu/" + _theme_name + "/";
     int lakitu_width = 0.4*std::min(_winw, _winh);
     _lakitu_center.x = _winw / 2;
     _lakitu_center.y = _winh / 2;
     _lakitu_status_imgs.resize(NLAKITU_STATUSES);
     DEBUG_PRINT("lakiu_roi:%gx%g\n", _lakitu_center.x, _lakitu_center.y);
-    ok = ok && _lakitu_status_imgs[LAKITU_INVISIBLE].from_file(_renderer, _data_path + "lakitu/0.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT0].from_file(_renderer, _data_path + "lakitu/0.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT1].from_file(_renderer, _data_path + "lakitu/1.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT2].from_file(_renderer, _data_path + "lakitu/2.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT3].from_file(_renderer, _data_path + "lakitu/3.png", lakitu_width);
-    ok = ok && _lakitu_status_imgs[LAKITU_RACE_OVER].from_file(_renderer, _data_path + "lakitu/finish.png", lakitu_width);
+    ok = ok && _lakitu_status_imgs[LAKITU_INVISIBLE].from_file(_renderer, lakitu_path + "0.png", lakitu_width);
+    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT0].from_file(_renderer, lakitu_path + "0.png", lakitu_width);
+    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT1].from_file(_renderer, lakitu_path + "1.png", lakitu_width);
+    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT2].from_file(_renderer, lakitu_path + "2.png", lakitu_width);
+    ok = ok && _lakitu_status_imgs[LAKITU_LIGHT3].from_file(_renderer, lakitu_path + "3.png", lakitu_width);
+    ok = ok && _lakitu_status_imgs[LAKITU_RACE_OVER].from_file(_renderer, lakitu_path + "finish.png", lakitu_width);
 
     if (!ok)
       return false;
@@ -852,8 +857,11 @@ public:
         Mix_FreeChunk(it->second);
     }
     _chunks.clear();
-    if (_music)
-      Mix_FreeMusic( _music );
+    for(std::map<std::string, Mix_Music*>::iterator it = _musics.begin(); it != _musics.end(); ++it) {
+      if (it->second)
+        Mix_FreeMusic(it->second);
+    }
+    _musics.clear();
     return true;
   }
 
@@ -861,13 +869,14 @@ public:
 
   bool restart_race() {
     DEBUG_PRINT("restart_race()\n");
-    Mix_HaltMusic();
+    play_music("music_prerace.mp3");
     _game_status = GAME_STATUS_WAITING;
     _lakitu_status = LAKITU_INVISIBLE;
     _lakitu.set_angle(0);
     _last_lap_played = false;
     _flying_curses.clear();
-    reset_players_curses_items();
+    for (unsigned int i = 0; i < _nplayers; ++i)
+      _players[i].reset();
     return true;
   }
 
@@ -877,11 +886,10 @@ public:
     DEBUG_PRINT("Status: GAME_STATUS_RACE_OVER\n");
     _game_status = GAME_STATUS_RACE_OVER;
     Mix_HaltMusic();
-    bool ok = play_sound("you-win.wav");
+    bool ok = play_sound("race_end.wav");
     _countdown.reset();
     _lakitu_status = LAKITU_RACE_OVER;
     _lakitu.set_texture(&_lakitu_status_imgs[_lakitu_status]);
-    reset_players_curses_items();
     return ok;
   } // end finish_race()
 
@@ -1006,7 +1014,8 @@ protected:
     // check state changes
     if (checkok) { // start countdown
       DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN\n");
-      play_sound("begin-race.wav");
+      Mix_HaltMusic();
+      play_sound("race_begin.wav");
       _game_status = GAME_STATUS_COUNTDOWN;
       _countdown.reset();
       _lakitu_status = LAKITU_LIGHT0;
@@ -1025,9 +1034,10 @@ protected:
     if (time >= 3 + 2.40 && _lakitu_status == LAKITU_LIGHT2) { // start race
       _race_timer.reset();
       _lakitu_status = LAKITU_LIGHT3;
+      play_sound("light_countdown3.wav");
+      play_music("music_race.mp3");
       _lakitu.set_texture(&_lakitu_status_imgs[_lakitu_status]);
       _game_status = GAME_STATUS_RACE;
-      Mix_PlayMusic( _music, -1 );
       // play a mushroom sound if needed
       bool play_dud = false, play_rocket = false;
       for (unsigned int i = 0; i < _nplayers; ++i) {
@@ -1036,19 +1046,20 @@ protected:
         play_dud = play_dud || (_players[i].get_curse() == CURSE_DUD_START);
         play_rocket = play_rocket || (_players[i].get_curse() == CURSE_ROCKET_START);
       }
-      if (play_rocket) play_sound("boost.wav");
-      if (play_dud) play_sound("spinout.wav");
+      if (play_rocket) play_sound("mushroom.wav");
+      if (play_dud) play_sound("dud_start.wav");
       DEBUG_PRINT("Status: GAME_STATUS_RACE\n");
     }
     else if (time >= 3 + 1.20 && _lakitu_status == LAKITU_LIGHT1) {
       _lakitu_status = LAKITU_LIGHT2;
+      play_sound("light_countdown2.wav");
       _lakitu.set_texture(&_lakitu_status_imgs[_lakitu_status]);
     }
     else if (time >= 3 && _lakitu_status == LAKITU_LIGHT0) {
       _lakitu_status = LAKITU_LIGHT1;
+      play_sound("light_countdown1.wav");
       _lakitu.set_texture(&_lakitu_status_imgs[_lakitu_status]);
       _lakitu.set_position(_lakitu_center); // just in case
-      play_sound("racestart.wav");
     }
     // going downward: --_lakitu.get_height()) -> lakitu_center.y
     else if (_lakitu_status == LAKITU_LIGHT0){
@@ -1076,7 +1087,7 @@ protected:
     else if (_race_timer.getTimeSeconds() > _race_duration - 10
              && !_last_lap_played) {
       _last_lap_played = true;
-      play_sound("last-lap.wav");
+      play_sound("race_last_lap.wav");
     }
 
     // check twists
@@ -1132,11 +1143,33 @@ protected:
     }
     Mix_PlayChannel( -1, chunk, 0 );
     return true;
-  }
+  } // end play_sound()
 
   //////////////////////////////////////////////////////////////////////////////
 
-  //!\return true if render OK or already done // This functionnality has been
+  bool play_music(const std::string & filename) {
+    DEBUG_PRINT("play_music('%s')", filename.c_str());
+    if (filename.empty())
+      return true;
+    std::map<std::string, Mix_Music*>::iterator it = _musics.find(filename);
+    Mix_Music* music = it->second;
+    if (it == _musics.end()) {
+      if (!(music = Mix_LoadMUS((_sound_path + filename).c_str()) )) {
+        ROS_WARN( "Failed to load music '%s'! SDL_mixer Error: %s",
+                  filename.c_str(), Mix_GetError() );
+        return false;
+      }
+      _musics.insert(std::make_pair(filename, music));
+    }
+    Mix_HaltMusic();
+    Mix_VolumeMusic(128);
+    Mix_PlayMusic(music, -1);
+    return true;
+  } // end play_music()
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  //!\return true i  render OK or already done // This functionnality has been
   //! updated in order to have double color timer (for visibility)
   bool render_countdown2texture(const int time) {
     if (_last_renderer_countdown_time == time)
@@ -1170,17 +1203,7 @@ protected:
   }
 
   //////////////////////////////////////////////////////////////////////////////
-
-  void reset_players_curses_items() {
-    for (unsigned int i = 0; i < _nplayers; ++i) {
-      _players[i].receive_curse(CURSE_NONE, i);
-      _players[i].receive_item(ITEM_NONE);
-    }
-  }
-
   //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
 
   unsigned int _nplayers;
   std::vector<Player> _players;
@@ -1198,7 +1221,7 @@ protected:
 
   // sound stuff
   std::map<std::string, Mix_Chunk*> _chunks;
-  Mix_Music *_music;
+  std::map<std::string, Mix_Music*> _musics;
 
   // rendering stuff
   boost::thread _render_thread;
@@ -1217,7 +1240,7 @@ protected:
   Texture _countdown_texture_red, _countdown_texture_black, _press_item;
 
   // shared textures
-  std::string _data_path, _sound_path;
+  std::string _data_path, _sound_path, _theme_name;
   std::vector<Texture> _lakitu_status_imgs, _item_imgs, _curse_imgs, _bg_imgs,
   _twist_status_imgs, _robot_status_imgs;
 

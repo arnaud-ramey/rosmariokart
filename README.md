@@ -167,20 +167,24 @@ Images
 Sounds
 ------
 
-  - `battle-mode.mp3`, `begin-race.mp3`, `last-lap.mp3`, `you-win.mp3`:
+  - `*/quartz.wav`:
+    [freesound.org](https://www.freesound.org/people/quartzgate/sounds/177868/)
+  - `*/timebomb.wav`:
+    [soundbible.com](http://soundbible.com/1203-Time-Bomb.html)
+
+  supertuxkart:
+  - `*`:
+    [SuperTuxKart assets SVN repository](https://svn.code.sf.net/p/supertuxkart/code/stk-assets/)
+
+  supermariokart:
+  - `music_prerace.mp3`, `music_race.mp3`, `race_begin.wav`, `race_last_lap.wav.wav`, `race_end.wav`:
     [khinsider.com](http://downloads.khinsider.com/game-soundtracks/album/super-mario-kart-original-soundtrack)
-  - `boost.wav, boosteal.wav, cpuspin.wav, cputhrow.wav, gotitem.wav, itemreel.wav, racestart.wav, spinout.wav`:
+  - `mushroom.wav, boo.wav, redshell_hit.wav, redshell_throw.wav, gotitem.wav, itemreel.wav, light_countdown.wav, dud_start.wav, timebomb_pass.wav`:
     [superluigibros.com](http://www.superluigibros.com/super-mario-kart-sound-effects-wav)
   - `lightning.wav`:
     [youtube.com](https://www.youtube.com/watch?v=IXUoY_KgCko)
-  - `mk64_countdown.wav`:
-    [themushroomkingdom.net](http://themushroomkingdom.net/media/mk64/wav)
-  - `quartz.wav`:
-    [freesound.org](https://www.freesound.org/people/quartzgate/sounds/177868/)
-  - `starman.wav`:
+  - `star.wav`:
     [superluigibros.com](http://www.superluigibros.com/mario-kart-64-sound-effects-wav)
-  - `timebomb.wav`:
-    [soundbible.com](http://soundbible.com/1203-Time-Bomb.html)
 
 
 Tracks
