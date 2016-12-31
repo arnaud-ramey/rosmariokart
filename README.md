@@ -123,22 +123,33 @@ Images
 
   - `doc/ori-robot-mip-noir-wowwee-1280.jpg`:
     [robot-advance.com](http://www.robot-advance.com/ori-robot-mip-noir-wowwee-1280.jpg)
-  - `data/items/BooCurse.png`:
-    [nocookie.net](http://fantendo.wikia.com/wiki/Boo_%28species%29)
-  - `data/items/jumping_sumo_brown.jpg`:
-    [amain.com](http://images.amain.com/images/large/pta/ptapf724002.jpg)
-  - `data/items/joypad.png`:
-    [myiconfinder.com](http://www.myiconfinder.com/icon/console-control-game-games-joy-joystick-manipulator-joypad-pad-joy-color-4-flat-metro-ui-dock/2533)
-  - `data/items/TimeBomb.png`:
+
+  - `data/items/supermariokart/Boo*.png`:
+    [fantendo.wikia.com](http://fantendo.wikia.com/wiki/Boo_%28species%29)
+  - `data/items/supermariokart/GoldenMushroom*.png`:
+    [mariowiki.net](http://www.mariowiki.com/Golden_Mushroom)
+  - `data/items/supermariokart/Lightning*.png`:
+    [mariokart.wikia.com](http://mariokart.wikia.com/wiki/Lightning)
+  - `data/items/supermariokart/Mushroom*.png`:
+    [nintendo.wikia.com](http://nintendo.wikia.com/wiki/File:Mushroom_-_Mario_Kart_Wii.png)
+  - `data/items/supermariokart/RedShell*.png`:
+    [mariokart.wikia.com](http://mariokart.wikia.com/wiki/Red_Shell)
+  - `data/items/supermariokart/TimeBombCurse.png`:
     [isthisabomb.com](http://isthisabomb.com/img/18.png)
-  - `data/items/RocketStartCurse.png`:
-    [isthisabomb.com](http://isthisabomb.com/img/18.png)
-  - `data/items/TimeBombCurse.png`:
+  - `data/items/supermariokart/RocketStartCurse.png`:
     [mariowiki.com](http://www.mariowiki.com/images/d/de/Rocket_Start_%28Mario_Kart_8%29.jpg)
+  - `data/items/supermariokart/Star.png`:
+    [nintendo.wikia.com](http://nintendo.wikia.com/wiki/File:Star_-_Mario_Kart_Wii.png)
+  - `data/items/supertuxkart/*`:
+    [SuperTuxKart assets SVN repository](https://svn.code.sf.net/p/supertuxkart/code/stk-assets/)
+
   - `data/lakitu/*.png`:
     [press-select.fr](http://www.press-select.fr/wp-content/uploads/2014/05/lakitu.png)
     [mariofusion.free.fr](http://mariofusion.free.fr/images/champi-musee/lakitu/lakitu-smk.jpg)
     [deviantart.net](http://img09.deviantart.net/7014/i/2009/264/6/d/mario_kart_collab___lakitu_by_sibsy.jpg)
+
+  - `data/robots/jumping_sumo_brown.jpg`:
+    [amain.com](http://images.amain.com/images/large/pta/ptapf724002.jpg)
   - `data/robots/random_robot.png`:
     [openclipart.org](https://openclipart.org/detail/170101/cartoon-robot)
   - `data/robots/stage_black_bg.png`:
@@ -147,6 +158,11 @@ Images
     [wowwee.com](http://store.wowwee.com/images/products/personalizations/2049.jpg)
   - `data/robots/white_sumo_black_bg.png`:
     [parrot.com](http://www.parrot.com/media/slideshows/slides/2015/01/26/165619437566.jpg)
+
+  - `data/warnings/joypad.png`:
+    [myiconfinder.com](http://www.myiconfinder.com/icon/console-control-game-games-joy-joystick-manipulator-joypad-pad-joy-color-4-flat-metro-ui-dock/2533)
+  - `data/warnings/press_item.png`:
+    [pixabay.com](http://pixabay.com/p-46783/?no_redirect)
 
 Sounds
 ------
@@ -172,6 +188,3 @@ Tracks
 
   - `config/bitmaps/Mariocircuit1.*`
     [mariokart.wikia.com](http://mariokart.wikia.com/wiki/Mario_Circuit_1)
-
-m8rkq88vl
-m8r-kq88vl@mailinator.com

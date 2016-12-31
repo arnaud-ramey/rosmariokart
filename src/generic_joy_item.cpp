@@ -38,7 +38,7 @@ void joy_cb(const sensor_msgs::Joy::ConstPtr& joy) {
   bool item_now = (button_item >=0 && nbuttons > button_item
                    && joy->buttons[button_item]);
   if (item_now && !item_before) {
-    ROS_INFO("Item button pressed!");
+    ROS_INFO_ONCE("Item button pressed!");
     item_pub.publish(std_msgs::Empty());
   }
   item_before = item_now;

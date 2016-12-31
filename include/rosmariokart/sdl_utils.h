@@ -570,7 +570,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  bool loadFromRenderedText(SDL_Renderer* renderer,
+  bool from_rendered_text(SDL_Renderer* renderer,
                             TTF_Font *font,
                             std::string textureText,
                             Uint8 r, Uint8 g, Uint8 b, Uint8 a = 255,

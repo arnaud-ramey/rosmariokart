@@ -26,13 +26,6 @@ enum Item {
   NITEMS               = 11
 };
 
-enum Background {
-  BG_NONE              = 0,
-  BG_ITEMS             = 1,
-  BG_GO                = 2,
-  NBG                  = 3
-};
-
 enum Curse {
   CURSE_NONE               = 0,
   CURSE_BOO                = 1,
@@ -41,20 +34,25 @@ enum Curse {
   CURSE_LIGHTNING          = 4,
   CURSE_MIRROR             = 5,
   CURSE_MUSHROOM           = 6,
-  CURSE_REDSHELL_COMING    = 7,
-  CURSE_REDSHELL_HIT       = 8,
-  CURSE_ROCKET_START       = 9, // fast start - http://www.mariowiki.com/Rocket_Start
-  CURSE_STAR               = 10,
-  CURSE_TIMEBOMB_COUNTDOWN = 11,
-  CURSE_TIMEBOMB_HIT       = 12,
-  NCURSES                  = 13
+  CURSE_REDSHELL_HIT       = 7,
+  CURSE_ROCKET_START       = 8, // fast start - http://www.mariowiki.com/Rocket_Start
+  CURSE_STAR               = 9,
+  CURSE_TIMEBOMB_COUNTDOWN = 10,
+  CURSE_TIMEBOMB_HIT       = 11,
+  NCURSES                  = 12
 };
 
-enum CmdVelStatus {
-  CMD_VEL_NEVER_RECEIVED = 0,
-  CMD_VEL_OK             = 1,
-  CMD_VEL_TIMEOUT        = 4,
-  NCMD_VEL_STATUSES      = 5
+enum TwistStatus {
+  TWIST_NEVER_RECEIVED = 0,
+  TWIST_OK             = 1,
+  TWIST_TIMEOUT        = 2,
+  NTWIST_STATUSES      = 3
+};
+
+enum ItemButtonStatus {
+  ITEM_BUTTON_NEVER_RECEIVED = 0,
+  ITEM_BUTTON_OK             = 1,
+  NITEM_BUTTON_STATUSES            = 2
 };
 
 enum RobotStatus {

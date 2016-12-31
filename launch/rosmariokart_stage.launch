@@ -10,18 +10,21 @@
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" >
 
+  <!-- "supermariokart" or "supertuxkart" -->
+<!--
+  <param name="theme_name" value="supermariokart"/>
+-->
   <param name="winw"        value="300"/>
   <param name="winh"        value="300"/>
   <param name="race_duration"   value="60"/>  <!-- in sec. -->
-  <param name="min_time_roulette" value="5"/>   <!-- in sec. -->
   <param name="use_rgb"       value="true"/>
   <param name="number_of_cols"  value="2"/>
 
   <param name="player1_name" value="robot_0"/>
   <param name="player2_name" value="robot_1"/>
+<!--
   <param name="player3_name" value="robot_2"/>
   <param name="player4_name" value="robot_3"/>
-<!--
   <param name="player5_name" value="robot_4" />
   <param name="player6_name" value="robot_5" />
   <param name="player7_name" value="robot_6" />
@@ -31,18 +34,19 @@
 
 
 <!-- first joystick -->
-<include file="$(find rosmariokart)/launch/controller_driver/dummy.launch">
+<!-- "dummy", "null", "sog", "tesun", "thrustmaster_dual_analog_4", "wii" -->
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
   <arg name="robot"   default="robot_0" />
-  <arg name="device"  default="/dev/input/js0" />
+  <arg name="device"  default="/dev/input/js1" />
 </include>
 <include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
   <arg name="robot"   default="robot_0" />
 </include>
 
 <!-- second joystick -->
-<include file="$(find rosmariokart)/launch/controller_driver/dummy.launch">
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
   <arg name="robot"   default="robot_1" />
-  <arg name="device"  default="/dev/input/js1" />
+  <arg name="device"  default="/dev/input/js2" />
 </include>
 <include file="$(find rosmariokart)/launch/robot_driver/stage_driver.launch">
   <arg name="robot"   default="robot_1" />

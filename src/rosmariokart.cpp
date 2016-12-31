@@ -2,7 +2,7 @@
   \file        rosmariokart.cpp
   \author      Arnaud Ramey <arnaud.a.ramey@gmail.com>
                 -- Robotics Lab, University Carlos III of Madrid
-  \contributor Eric MOLINE <molineer@gmail.com>
+  \author      Eric MOLINE <molineer@gmail.com>
                 -- PRISME University of Orleans
   \date        first release 2016/03/07
   \date        last release  2016/12/09
@@ -57,22 +57,23 @@ public:
       _player_idx = player_idx;
       _item = ITEM_NONE;
       _curse = CURSE_NONE;
-      _cmd_vel_status = CMD_VEL_NEVER_RECEIVED;
+      _twist_status = TWIST_NEVER_RECEIVED;
+      _item_button_status = ITEM_BUTTON_NEVER_RECEIVED;
       _robot_status = ROBOT_NEVER_RECEIVED;
       // rendering stuff
       force_next_render();
       // determine background color
       switch (player_idx % 4) {
-      case 0:
-        _bgcolor = cv::Vec4i(121, 28, 248, 255); break; // red
-      case 1:
-        _bgcolor = cv::Vec4i(22, 124, 78, 255); break; // green
-      case 2:
-        _bgcolor = cv::Vec4i(233, 109, 20, 255); break; // blue
-      case 3:
-      default:
-        _bgcolor = cv::Vec4i(255, 255, 0, 255); break; // ?
-        break;
+        case 0:
+          _bgcolor = cv::Vec4i(121, 28, 248, 255); break; // red
+        case 1:
+          _bgcolor = cv::Vec4i(22, 124, 78, 255); break; // green
+        case 2:
+          _bgcolor = cv::Vec4i(233, 109, 20, 255); break; // blue
+        case 3:
+        default:
+          _bgcolor = cv::Vec4i(255, 255, 0, 255); break; // ?
+          break;
       }
     }
 
@@ -83,8 +84,9 @@ public:
           col = _player_idx % number_of_cols;
       _tl_win   = Point2d( col * _game->_player_w,
                            row * _game->_player_h );
-      _tl_item.x = (col+1) * _game->_player_w - _game->_item_w * 1.1;
-      _tl_item.y = row * _game->_player_h + 10;
+      unsigned int padding = 10; // pixels
+      _tl_item.x = _tl_win.x + _game->_player_w - _game->_item_w - padding;
+      _tl_item.y = _tl_win.y + padding;
       _tl_curse.x = std::min(_tl_win.x + 0.5 * _game->_player_w - _game->_item_w/2,
                              _tl_item.x - _game->_item_w * 1.05) ;
       _tl_curse.y = _tl_item.y ;
@@ -116,8 +118,8 @@ public:
     void create_pub_sub() {
       ros::NodeHandle nh_public, nh_private("~");
       // create subscribers
-      _cmd_vel_sub = nh_public.subscribe
-          (_name + "/cmd_vel_raw", 1, &Player::cmd_vel_cb, this);
+      _twist_sub = nh_public.subscribe
+          (_name + "/cmd_vel_raw", 1, &Player::twist_cb, this);
       _item_sub = nh_public.subscribe
           (_name + "/item", 1, &Player::item_cb, this);
       bool use_rgb = true;
@@ -126,7 +128,7 @@ public:
         _rgb_sub = _game->_it.subscribe
             (_name + "/image", 1, &Player::rgb_cb, this);
       // create publishers
-      _cmd_vel_pub  = nh_public.advertise<geometry_msgs::Twist>
+      _twist_pub  = nh_public.advertise<geometry_msgs::Twist>
           (_name + "/cmd_vel", 1);
       _animation_pub  = nh_public.advertise<std_msgs::String>
           (_name + "/animation", 1);
@@ -141,13 +143,11 @@ public:
     ////////////////////////////////////////////////////////////////////////////
 
     void receive_item(Item i) {
-      Item prev_item = i;
-      _item = i;
-      if (i != prev_item)
+      if (i != _item)
         force_next_render();
-      if (i == ITEM_ROULETTE) {
+      _item = i;
+      if (i == ITEM_ROULETTE)
         _roulette_timer.reset();
-      }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -167,17 +167,10 @@ public:
 
       // clean curses if needed
       double time_curse = _curse_timer.getTimeSeconds();
-      if (_curse == CURSE_REDSHELL_COMING
-          && time_curse > .1
-          && (time_curse > _game->_curse_timeout[CURSE_REDSHELL_COMING]
-              || rand() % 50 == 0)) { // random end time
-        _game->caste_curse(CURSE_REDSHELL_HIT, _curse_caster_idx, _player_idx,
-                           "mock", "hit", "cpuspin.wav");
-      }
-      else if (_curse == CURSE_TIMEBOMB_COUNTDOWN
+      if (_curse == CURSE_TIMEBOMB_COUNTDOWN
                && _game->_timebomb.getTimeSeconds() > 4.935) { // 4.935 seconds
-        _game->caste_curse(CURSE_TIMEBOMB_HIT, _curse_caster_idx, _player_idx,
-                           "mock", "hit");
+        _game->_flying_curses.push_back(FlyingCurse(_game, CURSE_TIMEBOMB_HIT, _curse_caster_idx, _player_idx,
+                                                    "mock", "hit"));
       }
       else if ((_curse != CURSE_NONE) // whatever curse
                && time_curse > _game->_curse_timeout[_curse]) {
@@ -188,23 +181,31 @@ public:
 
     ////////////////////////////////////////////////////////////////////////////
 
-    //! check if player has a publisher for cmd_vel and a subscriber for cmd_vel
+    //! check if player has a publisher for twist and a subscriber for twist
     //! \return true if everything OK, false otherwise.
     //! If false, the image needs to be displayed
-    bool check_cmd_vels_and_robots() {
-      CmdVelStatus prev_cmd_vel_status = _cmd_vel_status;
-      RobotStatus prev_robot_status = _robot_status;
+    bool check_twists_and_robots() {
       bool retval = true;
-      // sanity checks: check cmd_vel status
-      if (_cmd_vel_status != CMD_VEL_OK)
+
+      // sanity checks: check item_button status
+      if (_item_button_status != ITEM_BUTTON_OK)
         retval = false;
-      else if (_last_cmd_vel_updated.getTimeSeconds() > .5) {
-        ROS_WARN("Player %i: CMD_VEL_TIMEOUT", _player_idx);
-        _cmd_vel_status = CMD_VEL_TIMEOUT;
+
+      // sanity checks: check twist status
+      if (_twist_status != TWIST_OK)
+        retval = false;
+      else if (_last_twist_updated.getTimeSeconds() > .5) {
+        ROS_WARN("Player %i: twist_TIMEOUT", _player_idx);
+        // force next rendering if needed
+        if (_twist_status != TWIST_TIMEOUT)
+          force_next_render();
+        _twist_status = TWIST_TIMEOUT;
         retval = false;
       }
+
       // sanity checks: check robot status
-      if (_cmd_vel_pub.getNumSubscribers() == 0) {
+      RobotStatus prev_robot_status = _robot_status;
+      if (_twist_pub.getNumSubscribers() == 0) {
         ROS_WARN("Player %i: ROBOT_TIMEOUT", _player_idx);
         _robot_status = ROBOT_TIMEOUT;
         retval =false;
@@ -213,11 +214,10 @@ public:
         _robot_status = ROBOT_OK;
       }
       // force next rendering if needed
-      if (prev_cmd_vel_status != _cmd_vel_status
-          || prev_robot_status != _robot_status)
+      if (prev_robot_status != _robot_status)
         force_next_render();
       return retval;
-    } // end check_cmd_vels_and_robots()
+    } // end check_twists_and_robots()
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -247,8 +247,7 @@ public:
       rect.y = _tl_win.y;
       rect.w = _game->_player_w;
       rect.h = _game->_player_h;
-      SDL_RenderFillRect(renderer, &rect);
-      //SDL_RenderDrawRect(renderer, &rect); // no need to be filled
+      SDL_RenderFillRect(renderer, &rect); // fill the background
 
       // draw image camera if available
       bool ok = true;
@@ -265,22 +264,31 @@ public:
       SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
       SDL_RenderDrawRect(renderer,&rect);
 
-      // draw cmd_vel status
-      if (_cmd_vel_status != CMD_VEL_OK)
-        ok = ok && _game->_cmd_vel_status_imgs[_cmd_vel_status].render(renderer,
-                                                                       _tl_win);
+      // draw twist status
+      Point2d pcenter = _tl_win + Point2d(_game->_player_w / 2, _game->_player_h / 2);
+      if (_twist_status != TWIST_OK) {
+        ROS_WARN("Rendering twist status %i", _twist_status);
+        ok = ok && _game->_twist_status_imgs[_twist_status].render_center(renderer, pcenter);
+      }
       // draw robot status
-      else if (_robot_status != ROBOT_OK)
-        ok = ok && _game->_robot_status_imgs[_robot_status ].render(renderer,
-                                                                    _tl_win);
+      else if (_robot_status != ROBOT_OK) {
+        ROS_WARN("Rendering robot status %i", _robot_status);
+        ok = ok && _game->_robot_status_imgs[_robot_status ].render_center(renderer, pcenter);
+      }
+      // draw item_button status
+      else if (_item_button_status != ITEM_BUTTON_OK) {
+        ROS_WARN("Rendering press_item");
+        ok = ok && _game->_press_item.render_center(renderer, pcenter);
+      }
+
       if (_game->_game_status != GAME_STATUS_RACE)
         return ok;
 
-      ok = ok && _game->_bg_imgs[BG_ITEMS].render(renderer,
-                                                  Point2d(_tl_item.x-5,_tl_item.y-5)); // Item Background
+      ok = ok && _game->_item_bg_img.render(renderer,
+                                            Point2d(_tl_item.x-5,_tl_item.y-5)); // Item Background
 
-      //ROS_WARN("Redraw player %i!", i); // do nothing if no cmd_vel or robot
-      //if (_cmd_vel_status != CMD_VEL_OK || _robot_status != ROBOT_OK)
+      //ROS_WARN("Redraw player %i!", i); // do nothing if no twist or robot
+      //if (_twist_status != twist_OK || _robot_status != ROBOT_OK)
       // return ok;
 
       if (_curse != CURSE_NONE)
@@ -300,6 +308,8 @@ public:
     ////////////////////////////////////////////////////////////////////////////
 
     void receive_curse(Curse c, unsigned int curse_caster_) {
+      if (c != _curse)
+        force_next_render();
       _curse = c;
       _curse_timer.reset();
       _curse_caster_idx = curse_caster_;
@@ -370,7 +380,7 @@ public:
       geometry_msgs::Twist vel;
       vel.linear.x = v;
       vel.angular.z = w;
-      _cmd_vel_pub.publish(vel);
+      _twist_pub.publish(vel);
       return true;
     } // end set_speed()
 
@@ -389,6 +399,9 @@ public:
 
     bool item_button_cb() {
       DEBUG_PRINT("item_button_cb(%i)\n", _player_idx);
+      if (_item_button_status == ITEM_BUTTON_NEVER_RECEIVED)
+        force_next_render();
+      _item_button_status = ITEM_BUTTON_OK;
       if (_game->_game_status != GAME_STATUS_RACE) // nothing to do
         return true;
       // check what to do if Item_button
@@ -420,14 +433,14 @@ public:
       // check items
       if (pi == ITEM_BOO) { // swap items
         if (is_real_item(targeti)) {
-          _game->caste_curse(CURSE_BOO, _player_idx, target_player_idx,
-                             "mock", "", "boosteal.wav");
+          _game->_flying_curses.push_back(FlyingCurse(_game, CURSE_BOO, _player_idx, target_player_idx,
+                                                      "mock", "", "boosteal.wav"));
           receive_item(targeti);
           target->receive_item(ITEM_NONE);
         }
         else { // nothing to steal -> punish player!
-          _game->caste_curse(CURSE_BOO, _player_idx, _player_idx,
-                             "", "", "boosteal.wav");
+          _game->_flying_curses.push_back(FlyingCurse(_game, CURSE_BOO, _player_idx, _player_idx,
+                                                      "", "", "boosteal.wav"));
           receive_item(ITEM_NONE);
         }
       }
@@ -439,14 +452,14 @@ public:
       else if (pi == ITEM_LIGHTNING) {
         receive_item(ITEM_NONE);
         if (targetc != CURSE_STAR) // do nothing if target has star
-          _game->caste_curse(CURSE_LIGHTNING, _player_idx, target_player_idx,
-                             "mock", "", "lightning.wav");
+          _game->_flying_curses.push_back(FlyingCurse(_game, CURSE_LIGHTNING, _player_idx, target_player_idx,
+                                                      "mock", "", "lightning.wav"));
       }
       else if (pi == ITEM_MIRROR) {
         receive_item(ITEM_NONE);
         if (targetc != CURSE_STAR) // do nothing if target has star
-          _game->caste_curse(CURSE_MIRROR, _player_idx, target_player_idx,
-                             "mock", "", "quartz.wav");
+          _game->_flying_curses.push_back(FlyingCurse(_game, CURSE_MIRROR, _player_idx, target_player_idx,
+                                                      "mock", "", "quartz.wav"));
       }
       else if (pi == ITEM_MUSHROOM) {
         _game->play_sound("boost.wav");
@@ -455,8 +468,10 @@ public:
       }
       else if (pi == ITEM_REDSHELL || pi == ITEM_REDSHELL2 || pi == ITEM_REDSHELL3) {
         if (targetc != CURSE_STAR) // do nothing if target has star
-          _game->caste_curse(CURSE_REDSHELL_COMING, _player_idx, target_player_idx,
-                             "", "", "cputhrow.wav");
+          _game->_flying_curses.push_back(FlyingCurse(_game,
+                                                      CURSE_REDSHELL_HIT, _player_idx, target_player_idx,
+                                                      "mock", "hit", "cputhrow.wav", "cpuspin.wav",
+                                                      1. + drand48() * 2.));
         if (pi == ITEM_REDSHELL) // decrease red shell counter
           receive_item(ITEM_NONE);
         else if (pi == ITEM_REDSHELL2)
@@ -487,11 +502,13 @@ public:
 
     ////////////////////////////////////////////////////////////////////////////
 
-    void cmd_vel_cb(const geometry_msgs::Twist::ConstPtr& cmd_vel) {
-      _cmd_vel_status = CMD_VEL_OK;
-      _last_cmd_vel_updated.reset();
-      set_speed( cmd_vel->linear.x, cmd_vel->angular.z);
-    } // end cmd_vel_cb();
+    void twist_cb(const geometry_msgs::Twist::ConstPtr& twist) {
+      if (_twist_status == TWIST_NEVER_RECEIVED)
+        force_next_render();
+      _twist_status = TWIST_OK;
+      _last_twist_updated.reset();
+      set_speed( twist->linear.x, twist->angular.z);
+    } // end twist_cb();
 
 
     ////////////////////////////////////////////////////////////////////////////
@@ -534,9 +551,10 @@ public:
     unsigned int _player_idx;
     Item _item;
     Curse _curse;
-    CmdVelStatus _cmd_vel_status;
+    TwistStatus _twist_status;
     RobotStatus _robot_status;
-    Timer _curse_timer, _roulette_timer, _last_cmd_vel_updated;
+    ItemButtonStatus _item_button_status;
+    Timer _curse_timer, _roulette_timer, _last_twist_updated;
     unsigned int _curse_caster_idx;
 
     // rendering stuff
@@ -546,69 +564,88 @@ public:
     boost::shared_ptr<boost::mutex> _rgb_mutex;
     cv::Vec4i _bgcolor;
     // ROS data
-    ros::Subscriber _cmd_vel_sub, _item_sub;
+    ros::Subscriber _twist_sub, _item_sub;
     image_transport::Subscriber _rgb_sub;
-    ros::Publisher _cmd_vel_pub, _animation_pub;
+    ros::Publisher _twist_pub, _animation_pub;
   }; // end class Player //////////////////////////////////////////////////////
 
   //////////////////////////////////////////////////////////////////////////////
 
   class FlyingCurse {
   public:
-    FlyingCurse(Game* game) : _game(game) {}
-
-    void create(Curse curse,
-                Point2d pbegin, Point2d pend,
-                double traveltime = 1) {
-      _pbegin = pbegin;
-      _pend = pend;
-      _curse = curse;
-      _traveltime = traveltime;
-      _life_timer.reset();
-    }
-
     //! version between two players: the caster (item) and the receiver (curse)
-    void create(Curse curse,
+    FlyingCurse(Game* game,
+                Curse curse,
                 int caster_idx, int receiver_idx,
-                double traveltime = 1) {
-      create(curse, _game->_players[caster_idx].get_tl_item(),
-             _game->_players[receiver_idx].get_tl_curse(),
-             traveltime);
+                std::string caster_anim = "",
+                std::string receiver_anim = "",
+                std::string sound_on_cast = "",
+                std::string sound_on_receive = "",
+                double traveltime = 1)
+      : _game(game), _curse(curse),
+        _caster_idx(caster_idx), _receiver_idx(receiver_idx),
+        _caster_anim(caster_anim), _receiver_anim(receiver_anim),
+        _sound_on_receive(sound_on_receive),
+        _traveltime(traveltime) {
+      _pbegin = _game->_players[caster_idx].get_tl_item();
+      _pend = _game->_players[receiver_idx].get_tl_curse();
+      _life_timer.reset();
+      // play sound if needed
+      if (!sound_on_cast.empty())
+        _game->play_sound(sound_on_cast);
     }
 
     bool render(SDL_Renderer* renderer) {
       if (is_over())
         return true; // nothing to do
-      double t = _life_timer.getTimeSeconds();
+      bool ok = true;
+      double t = _life_timer.getTimeSeconds() / _traveltime;
       Point2d curr;
       curr.x = t * _pend.x + (1-t) * _pbegin.x;
       curr.y = t * _pend.y + (1-t) * _pbegin.y;
       Texture* tex = &(_game->_curse_imgs[_curse]);
-      return tex->render(renderer, curr);
+      ok = ok && tex->render(renderer, curr);
 
       // force_hidden_players_render
       unsigned int nplayers = _game->_nplayers;
       int iw = _game->_item_w, pw = _game->_player_w, ph = _game->_player_h;
       for (unsigned int i = 0; i < nplayers; ++i) {
         Point2d tl = _game->_players[i].get_tl_win();
+        // ROS_WARN("Item %i: comparing (%g, %g) and (%g, %g)", _curse, curr.x, curr.y, tl.x, tl.y);
         if (curr.x + iw < tl.x // too much at the left, no overlap
             || curr.x > tl.x + pw // at the right, no overlap
             || curr.y + iw < tl.y // on top, no overlap
             || curr.y > tl.y + ph) // at the bottom, no overlap
           continue;
-        ROS_WARN("Item %i: forcing next render of player %i", _curse, i);
+        //ROS_WARN("Item %i: forcing next render of player %i", _curse, i);
         _game->_players[i].force_next_render();
       } // end for i
+      return ok;
     } // end render()
 
     inline bool is_over() const {
       return _life_timer.getTimeSeconds() > _traveltime;
     }
 
+    inline bool apply_to_receiver() const {
+      _game->_players[_receiver_idx].receive_curse(_curse, _caster_idx);
+      // play animation if needed
+      if (!_caster_anim.empty() && _caster_idx < _game->_nplayers)
+        _game->_players[_caster_idx].play_animation(_caster_anim);
+      if (!_receiver_anim.empty() && _receiver_idx < _game->_nplayers)
+        _game->_players[_receiver_idx].play_animation(_receiver_anim);
+      // play sound if needed
+      if (!_sound_on_receive.empty())
+        return _game->play_sound(_sound_on_receive);
+      return true;
+    }
+
   protected:
     Game* _game;
     Curse _curse;
     Timer _life_timer;
+    unsigned int _caster_idx, _receiver_idx;
+    std::string _caster_anim, _receiver_anim, _sound_on_receive;
     double _traveltime;
     Point2d _pbegin, _pend;
   }; // end class FlyingCurse
@@ -623,7 +660,7 @@ public:
     _nh_private.param("winw", _winw, 800);
     _nh_private.param("winh", _winh, 600);
     _nh_private.param("min_time_roulette", _min_time_roulette, 10.);
-    _nh_private.param("timebomb_likelihood", _timebomb_likelihood, 0.03); // 3%
+    _nh_private.param("timebomb_likelihood", _timebomb_likelihood, 0.10); // 10%
     _nh_private.param("race_duration", _race_duration, 79.); // seconds = 1 min 19
     _nh_private.param("number_of_cols", _number_of_cols, 2);
 
@@ -636,7 +673,6 @@ public:
     _nh_private.param("curse_lightning_timeout", _curse_timeout[CURSE_LIGHTNING], 5.);
     _nh_private.param("curse_mirror_timeout", _curse_timeout[CURSE_MIRROR], 5.);
     _nh_private.param("curse_mushroom_timeout", _curse_timeout[CURSE_MUSHROOM], 3.);
-    _nh_private.param("curse_redshell_coming_timeout", _curse_timeout[CURSE_REDSHELL_COMING], 3.);
     _nh_private.param("curse_redshell_hit_timeout", _curse_timeout[CURSE_REDSHELL_HIT], 3.);
     _nh_private.param("curse_rocket_start_timeout", _curse_timeout[CURSE_ROCKET_START], 5.);
     _nh_private.param("curse_star_timeout", _curse_timeout[CURSE_STAR], 3.130);
@@ -745,45 +781,49 @@ public:
   //! load Items
   bool load_items(int item_size) {
     this->_item_imgs.resize(NITEMS);
-    this->_bg_imgs.resize(NBG);
     bool ok = true;
+    std::string theme_name = "supertuxkart";
+    _nh_private.param("theme_name", theme_name, theme_name);
 
     // load Items Background
-    ok = ok && _bg_imgs[BG_ITEMS].from_file(_renderer, _data_path + "items/Item_BG.png", item_size + 10);
+    std::string item_path = _data_path + "/items/" + theme_name + "/";
+    ok = ok && _item_bg_img.from_file(_renderer, item_path + "Item_BG.png", item_size + 10);
 
-    ok = ok && _item_imgs[ITEM_BOO].from_file(_renderer, _data_path + "items/Boo.png", item_size);
-    ok = ok && _item_imgs[ITEM_GOLDENMUSHROOM].from_file(_renderer, _data_path + "items/GoldenMushroom.png", item_size);
-    ok = ok && _item_imgs[ITEM_LIGHTNING].from_file(_renderer, _data_path + "items/Lightning.png", item_size);
-    ok = ok && _item_imgs[ITEM_MIRROR].from_file(_renderer, _data_path + "items/Mirror.png", item_size);
-    ok = ok && _item_imgs[ITEM_MUSHROOM].from_file(_renderer, _data_path + "items/Mushroom.png", item_size);
-    ok = ok && _item_imgs[ITEM_REDSHELL].from_file(_renderer, _data_path + "items/RedShell.png", item_size);
-    ok = ok && _item_imgs[ITEM_REDSHELL2].from_file(_renderer, _data_path + "items/RedShell2.png", item_size);
-    ok = ok && _item_imgs[ITEM_REDSHELL3].from_file(_renderer, _data_path + "items/RedShell3.png", item_size);
-    ok = ok && _item_imgs[ITEM_STAR].from_file(_renderer, _data_path + "items/Star.png", item_size);
+    ok = ok && _item_imgs[ITEM_BOO].from_file(_renderer, item_path + "Boo.png", item_size);
+    ok = ok && _item_imgs[ITEM_GOLDENMUSHROOM].from_file(_renderer, item_path + "GoldenMushroom.png", item_size);
+    ok = ok && _item_imgs[ITEM_LIGHTNING].from_file(_renderer, item_path + "Lightning.png", item_size);
+    ok = ok && _item_imgs[ITEM_MIRROR].from_file(_renderer, item_path + "Mirror.png", item_size);
+    ok = ok && _item_imgs[ITEM_MUSHROOM].from_file(_renderer, item_path + "Mushroom.png", item_size);
+    ok = ok && _item_imgs[ITEM_REDSHELL].from_file(_renderer, item_path + "RedShell.png", item_size);
+    ok = ok && _item_imgs[ITEM_REDSHELL2].from_file(_renderer, item_path + "RedShell2.png", item_size);
+    ok = ok && _item_imgs[ITEM_REDSHELL3].from_file(_renderer, item_path + "RedShell3.png", item_size);
+    ok = ok && _item_imgs[ITEM_STAR].from_file(_renderer, item_path + "Star.png", item_size);
     // load curses
     _curse_imgs.resize(NCURSES);
-    ok = ok && _curse_imgs[CURSE_BOO].from_file(_renderer, _data_path + "items/BooCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_DUD_START].from_file(_renderer, _data_path + "items/DudStartCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_GOLDENMUSHROOM].from_file(_renderer, _data_path + "items/GoldenMushroomCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_LIGHTNING].from_file(_renderer, _data_path + "items/LightningCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_MIRROR].from_file(_renderer, _data_path + "items/MirrorCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_MUSHROOM].from_file(_renderer, _data_path + "items/MushroomCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_REDSHELL_HIT].from_file(_renderer, _data_path + "items/RedShellCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_REDSHELL_COMING].from_file(_renderer, _data_path + "items/RedShellComing.png", item_size);
-    ok = ok && _curse_imgs[CURSE_ROCKET_START].from_file(_renderer, _data_path + "items/RocketStartCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_STAR].from_file(_renderer, _data_path + "items/StarCurse.png", item_size);
-    ok = ok && _curse_imgs[CURSE_TIMEBOMB_COUNTDOWN].from_file(_renderer, _data_path + "items/TimeBombCountdown.png", item_size);
-    ok = ok && _curse_imgs[CURSE_TIMEBOMB_HIT].from_file(_renderer, _data_path + "items/TimeBombCurse.png", item_size);
-    // load cmd_vel statues
-    _cmd_vel_status_imgs.resize(NCMD_VEL_STATUSES);
-    ok = ok && _cmd_vel_status_imgs[CMD_VEL_OK].from_file(_renderer, _data_path + "warnings/joypadOK.png", item_size);
-    ok = ok && _cmd_vel_status_imgs[CMD_VEL_NEVER_RECEIVED].from_file(_renderer, _data_path + "warnings/joypadWarning.png", item_size);
-    ok = ok && _cmd_vel_status_imgs[CMD_VEL_TIMEOUT].from_file(_renderer, _data_path + "warnings/joypadWarning.png", item_size);
+    ok = ok && _curse_imgs[CURSE_BOO].from_file(_renderer, item_path + "BooCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_DUD_START].from_file(_renderer, item_path + "DudStartCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_GOLDENMUSHROOM].from_file(_renderer, item_path + "GoldenMushroomCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_LIGHTNING].from_file(_renderer, item_path + "LightningCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_MIRROR].from_file(_renderer, item_path + "MirrorCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_MUSHROOM].from_file(_renderer, item_path + "MushroomCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_REDSHELL_HIT].from_file(_renderer, item_path + "RedShellCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_ROCKET_START].from_file(_renderer, item_path + "RocketStartCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_STAR].from_file(_renderer, item_path + "StarCurse.png", item_size);
+    ok = ok && _curse_imgs[CURSE_TIMEBOMB_COUNTDOWN].from_file(_renderer, item_path + "TimeBombCountdown.png", item_size);
+    ok = ok && _curse_imgs[CURSE_TIMEBOMB_HIT].from_file(_renderer, item_path + "TimeBombCurse.png", item_size);
+    // load item_button status
+    unsigned int status_size = std::min(_player_w, _player_h) - 5;
+    _press_item.from_file(_renderer, _data_path + "warnings/press_item.png", status_size);
+    // load twist statues
+    _twist_status_imgs.resize(NTWIST_STATUSES);
+    ok = ok && _twist_status_imgs[TWIST_OK].from_file(_renderer, _data_path + "warnings/joypadOK.png", status_size);
+    ok = ok && _twist_status_imgs[TWIST_NEVER_RECEIVED].from_file(_renderer, _data_path + "warnings/joypadWarning.png", status_size);
+    ok = ok && _twist_status_imgs[TWIST_TIMEOUT].from_file(_renderer, _data_path + "warnings/joypadWarning.png", status_size);
     // load robot statuses
     _robot_status_imgs.resize(NROBOT_STATUSES);
-    ok = ok && _robot_status_imgs[ROBOT_OK].from_file(_renderer, _data_path + "warnings/robotOK.png", item_size);
-    ok = ok && _robot_status_imgs[ROBOT_NEVER_RECEIVED].from_file(_renderer, _data_path + "warnings/robotWarning.png", item_size);
-    ok = ok && _robot_status_imgs[ROBOT_TIMEOUT].from_file(_renderer, _data_path + "warnings/robotWarning.png", item_size);
+    ok = ok && _robot_status_imgs[ROBOT_OK].from_file(_renderer, _data_path + "warnings/robotOK.png", status_size);
+    ok = ok && _robot_status_imgs[ROBOT_NEVER_RECEIVED].from_file(_renderer, _data_path + "warnings/robotWarning.png", status_size);
+    ok = ok && _robot_status_imgs[ROBOT_TIMEOUT].from_file(_renderer, _data_path + "warnings/robotWarning.png", status_size);
     // load lakitu statuses
     int lakitu_width = 0.4*std::min(_winw, _winh);
     _lakitu_center.x = _winw / 2;
@@ -826,6 +866,7 @@ public:
     _lakitu_status = LAKITU_INVISIBLE;
     _lakitu.set_angle(0);
     _last_lap_played = false;
+    _flying_curses.clear();
     reset_players_curses_items();
     return true;
   }
@@ -876,15 +917,15 @@ public:
     } // end while ( SDL_PollEvent( &event ) )
 
     switch (_game_status) {
-    case GAME_STATUS_WAITING:
-      return update_waiting();
-    case GAME_STATUS_COUNTDOWN:
-      return update_countdown();
-    case GAME_STATUS_RACE:
-      return update_race();
-    case GAME_STATUS_RACE_OVER:
-    default:
-      return update_race_over();
+      case GAME_STATUS_WAITING:
+        return update_waiting();
+      case GAME_STATUS_COUNTDOWN:
+        return update_countdown();
+      case GAME_STATUS_RACE:
+        return update_race();
+      case GAME_STATUS_RACE_OVER:
+      default:
+        return update_race_over();
     }
   } // end update()
 
@@ -925,6 +966,7 @@ public:
       // render flying curses
       for (unsigned int i = 0; i < _flying_curses.size(); ++i) {
         if (_flying_curses[i].is_over()) {
+          ok = ok  && _flying_curses[i].apply_to_receiver();
           _flying_curses.erase(_flying_curses.begin() + i);
           --i;
           continue;
@@ -945,22 +987,22 @@ public:
   }
 
 protected:
-  //! check if player has a publisher for cmd_vel and a subscriber for cmd_vel
+  //! check if player has a publisher for twist and a subscriber for twist
   //! \return true if everything OK, false otherwise.
   //! If false, the image needs to be displayed
-  bool check_cmd_vels_and_robots() {
+  bool check_twists_and_robots() {
     bool retval = true;
     for (unsigned int player_idx = 0; player_idx < _nplayers; ++player_idx) {
-      if (!_players[player_idx].check_cmd_vels_and_robots())
+      if (!_players[player_idx].check_twists_and_robots())
         retval = false;
     }
     return retval;
-  } // end check_cmd_vels_and_robots()
+  } // end check_twists_and_robots()
 
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_waiting() {
-    bool checkok = check_cmd_vels_and_robots();
+    bool checkok = check_twists_and_robots();
     // check state changes
     if (checkok) { // start countdown
       DEBUG_PRINT("Status: GAME_STATUS_COUNTDOWN\n");
@@ -977,7 +1019,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_countdown() {
-    check_cmd_vels_and_robots();
+    check_twists_and_robots();
     double time = _countdown.getTimeSeconds();
     // check state changes
     if (time >= 3 + 2.40 && _lakitu_status == LAKITU_LIGHT2) { // start race
@@ -1037,8 +1079,8 @@ protected:
       play_sound("last-lap.wav");
     }
 
-    // check cmd_vels
-    if (!check_cmd_vels_and_robots())
+    // check twists
+    if (!check_twists_and_robots())
       return true;
 
     // check items
@@ -1056,7 +1098,7 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
 
   bool update_race_over() {
-    check_cmd_vels_and_robots();
+    check_twists_and_robots();
     int x = _lakitu_center.x, y = _lakitu_center.y;
     double time = _countdown.getTimeSeconds();
     if (time <= 3) { // get lakitu down
@@ -1101,36 +1143,15 @@ protected:
       return true;
     std::ostringstream time_str; time_str << time;
     _last_renderer_countdown_time = time;
-    if (!_countdown_texture_red.loadFromRenderedText
+    if (!_countdown_texture_red.from_rendered_text
         (_renderer, _countdown_font, time_str.str(), 255, 0, 0)
-        || !_countdown_texture_black.loadFromRenderedText
+        || !_countdown_texture_black.from_rendered_text
         (_renderer, _countdown_font, time_str.str(), 9, 0, 0))
       return false;
     // force next rendering for all players
     for (unsigned int i = 0; i < _nplayers; ++i)
       _players[i].force_next_render();
     return true;
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  bool caste_curse(Curse curse,
-                   unsigned int caster_idx, unsigned int receiver_idx,
-                   std::string caster_anim = "",
-                   std::string receiver_anim = "",
-                   std::string sound = "") {
-    FlyingCurse fcurse(this);
-    fcurse.create(curse, caster_idx, receiver_idx);
-    _flying_curses.push_back(fcurse);
-    // nothing to do on _players[caster_idx]
-    _players[receiver_idx].receive_curse(curse, caster_idx);
-    // play animation
-    if (!caster_anim.empty() && caster_idx < _nplayers && receiver_idx != caster_idx)
-      _players[caster_idx].play_animation(caster_anim);
-    if (!receiver_anim.empty() && receiver_idx < _nplayers && receiver_idx != caster_idx)
-      _players[receiver_idx].play_animation(receiver_anim);
-    // play sound
-    return play_sound(sound);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1193,14 +1214,15 @@ protected:
   // time display stuff
   TTF_Font *_countdown_font;
   int _last_renderer_countdown_time;
-  Texture _countdown_texture_red, _countdown_texture_black;
+  Texture _countdown_texture_red, _countdown_texture_black, _press_item;
 
   // shared textures
   std::string _data_path, _sound_path;
   std::vector<Texture> _lakitu_status_imgs, _item_imgs, _curse_imgs, _bg_imgs,
-  _cmd_vel_status_imgs, _robot_status_imgs;
+  _twist_status_imgs, _robot_status_imgs;
 
   // items
+  Texture _item_bg_img;
   std::vector<double> _curse_timeout;
   std::vector<FlyingCurse> _flying_curses;
 }; // end class Game
@@ -1216,15 +1238,18 @@ int main(int argc, char** argv) {
     ROS_ERROR("game.init() failed!");
     return false;
   }
-  if (!game.create_render_thread()) {
-    ROS_ERROR("game.create_render_thread() failed!");
-    return false;
-  }
+  //  if (!game.create_render_thread()) {
+  //    ROS_ERROR("game.create_render_thread() failed!");
+  //    return false;
+  //  }
   ros::Rate update_rate(25);
   while (ros::ok()) {
     if (!game.update()) {
       ROS_ERROR("game.update() failed!");
       return false;
+    }
+    if (!game.render()){
+      ROS_WARN("render failed!");
     }
     ros::spinOnce();
     if (!update_rate.sleep()){
