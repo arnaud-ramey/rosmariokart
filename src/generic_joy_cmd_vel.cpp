@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
   // subscribers
   ros::Subscriber joy_sub = nh_public.subscribe<sensor_msgs::Joy>("joy", 1,  joy_cb);
   // publishers
-  cmd_vel_pub = nh_public.advertise<geometry_msgs::Twist>("cmd_vel", 1);
+  cmd_vel_pub = nh_public.advertise<geometry_msgs::Twist>("cmd_vel_raw", 1);
   ros::spin();
   return 0;
 }

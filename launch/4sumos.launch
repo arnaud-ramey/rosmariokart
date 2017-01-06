@@ -1,69 +1,41 @@
 <launch>
-<arg name="p1" value="sumo1"/>
-<arg name="p2" value="sumo2"/>
-<arg name="p3" value="sumo3"/>
-<arg name="p4" value="sumo4"/>
-<!-- change IPs -->
-<!--
-<node pkg="rosmariokart" type="4sumos2router.sh" name="foursumos"
-      output="screen" required="true" />
+<!-- change IPs with for instance
+$ rosrun rosmariokart  4sumos2router.sh-
 -->
 
 <!-- rosmariokart -->
 <node pkg="rosmariokart" type="rosmariokart.exe" name="rosmariokart"
       output="screen" required="true" >
-  <param name="winw" value="1300"/>
-  <param name="winh" value="700"/>
-  <param name="axis_linear" value="1"/>
-  <param name="axis_angular" value="0"/>
-  <param name="axis_90turn" value="4"/>
-  <param name="axis_180turn" value="5"/>
-  <param name="button_item" value="3"/>
+  <param name="winw"         value="1300"/>
+  <param name="winh"         value="700"/>
+  <param name="use_rgb"      value="true"/>
 
-  <param name="player1_name" value="$(arg p1)"/>
-  <param name="$(arg p1)/scale_angular" value="20.0"/>
-  <param name="$(arg p1)/scale_linear" value="50.0"/>
-  <remap from="/$(arg p1)/image" to="/$(arg p1)/camera/image_raw"/>
-
-  <param name="player2_name" value="$(arg p2)"/>
-  <param name="$(arg p2)/scale_angular" value="20.0"/>
-  <param name="$(arg p2)/scale_linear" value="50.0"/>
-  <remap from="/$(arg p2)/image" to="/$(arg p2)/camera/image_raw"/>
-
-  <param name="player3_name" value="$(arg p3)"/>
-  <param name="$(arg p3)/scale_angular" value="20.0"/>
-  <param name="$(arg p3)/scale_linear" value="50.0"/>
-  <remap from="/$(arg p3)/image" to="/$(arg p3)/camera/image_raw"/>
-
+  <param name="player1_name" value="sumo1"/>
+  <param name="player2_name" value="sumo2"/>
 <!--
-  <param name="player4_name" value="$(arg p4)"/>
-  <param name="$(arg p4)/scale_angular" value="20.0"/>
-  <param name="$(arg p4)/scale_linear" value="50.0"/>
-  <remap from="/$(arg p4)/image" to="/$(arg p4)/camera/image_raw"/>
+  <param name="player3_name" value="sumo3"/>
+  <param name="player4_name" value="sumo4"/>
 -->
 </node>
 
 <!-- drivers -->
-<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
-  <arg name="robot" value="$(arg p1)"/>
-  <arg name="joydevice" value="/dev/input/js1"/>
-  <arg name="ip" value="192.168.1.15" />
+<!-- "dummy", "null", "sog", "tesun", "thrustmaster_dual_analog_4", "wii" -->
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
+  <arg name="robot"   value="sumo1" />
+  <arg name="device"  value="/dev/input/js1" />
 </include>
-<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
-  <arg name="robot" value="$(arg p2)"/>
-  <arg name="joydevice" value="/dev/input/js2"/>
-  <arg name="ip" value="192.168.1.17" />
+<include file="$(find rosmariokart)/launch/robot_driver/sumo_driver.launch">
+  <arg name="robot"   value="sumo1" />
+  <arg name="ip"      value="192.168.2.11" />
 </include>
-<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
-  <arg name="robot" value="$(arg p3)"/>
-  <arg name="joydevice" value="/dev/input/js3"/>
-  <arg name="ip" value="192.168.1.18" />
+
+<include file="$(find rosmariokart)/launch/controller_driver/thrustmaster_dual_analog_4.launch">
+  <arg name="robot"   value="sumo2" />
+  <arg name="device"  value="/dev/input/js2" />
 </include>
-<!--
-<include file="$(find rosmariokart)/launch/rosmariokart_sumo.launch">
-  <arg name="robot" value="$(arg p4)"/>
-  <arg name="joydevice" value="/dev/input/js4"/>
-  <arg name="ip" value="192.168.1.19" />
+<include file="$(find rosmariokart)/launch/robot_driver/sumo_driver.launch">
+  <arg name="robot"   value="sumo2" />
+  <arg name="ip"      value="192.168.2.12" />
 </include>
--->
+
 </launch>

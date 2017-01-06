@@ -139,6 +139,11 @@ public:
           (_name + "/cmd_vel", 1);
       _animation_pub  = nh_public.advertise<std_msgs::String>
           (_name + "/animation", 1);
+      ROS_INFO("Robot '%s': getting twists on '%s', items on '%s', RGB on '%s' (used:%i),"
+               "publishing twists on '%s', animations on '%s'",
+               _name.c_str(), _twist_sub.getTopic().c_str(), _item_sub.getTopic().c_str(),
+               _rgb_sub.getTopic().c_str(), use_rgb,
+               _twist_pub.getTopic().c_str(), _animation_pub.getTopic().c_str());
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -217,7 +222,8 @@ public:
       // sanity checks: check robot status
       RobotStatus prev_robot_status = _robot_status;
       if (_twist_pub.getNumSubscribers() == 0) {
-        ROS_WARN("Player %i: ROBOT_TIMEOUT", _player_idx);
+        ROS_WARN("Player %i: ROBOT_TIMEOUT, no subscriber on '%s'",
+                 _player_idx, _twist_pub.getTopic().c_str());
         _robot_status = ROBOT_TIMEOUT;
         retval =false;
       }

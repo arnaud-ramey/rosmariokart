@@ -14,10 +14,10 @@
 <!--
   <param name="theme_name" value="supermariokart"/>
 -->
-  <param name="winw"        value="300"/>
-  <param name="winh"        value="300"/>
+  <param name="winw"            value="300"/>
+  <param name="winh"            value="300"/>
   <param name="race_duration"   value="60"/>  <!-- in sec. -->
-  <param name="use_rgb"       value="true"/>
+  <param name="use_rgb"         value="true"/>
   <param name="number_of_cols"  value="2"/>
 
   <param name="player1_name" value="robot_0"/>

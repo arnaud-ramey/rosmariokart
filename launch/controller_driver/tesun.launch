@@ -9,10 +9,13 @@
   <param name="axis_linear"      value="2"/>
   <param name="button_180turn"   value="8"/>
   <param name="button_90turn"    value="6"/>
-  <param name="button_anim"      value="-1"/>
-  <param name="button_high_jump" value="-1"/>
+  <param name="button_anim"      value="-1"/> <!-- unused -->
+  <param name="button_deadman"   value="-1"/> <!-- unused -->
+  <param name="button_high_jump" value="-1"/> <!-- unused -->
   <param name="button_item"      value="7"/>
-  <param name="button_posture"   value="-1"/>
+  <param name="button_posture"   value="-1"/> <!-- unused -->
+  <param name="offset_angular"   value="0"/> <!-- centered -->
+  <param name="offset_linear"    value="0"/> <!-- centered -->
   <param name="scale_angular"    value="1"/>
   <param name="scale_linear"     value="1"/>
 
