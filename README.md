@@ -192,3 +192,9 @@ Tracks
 
   - `config/bitmaps/Mariocircuit1.*`
     [mariokart.wikia.com](http://mariokart.wikia.com/wiki/Mario_Circuit_1)
+
+Licence
+=======
+
+LGPL v3 (GNU Lesser General Public License version 3).
+See LICENCE.
