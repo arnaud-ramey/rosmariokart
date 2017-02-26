@@ -39,6 +39,9 @@ Node parameters
   At least fields `player_1_name` and `player_2_name` must be set.
   As documented below, these names will be used as namespaces to access
   various topics and parameters.
+  If you use some special names, a specific avatar (robot image) will be used.
+  These values are:
+  `mip_black, mip_white, race_max_red, random_robot, stage, sumo_black, sumo_brown, sumo_white`.
 
 - `~curse_XXX_timeout`
   [double, seconds, default: 2 seconds]

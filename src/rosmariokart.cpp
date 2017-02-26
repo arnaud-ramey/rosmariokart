@@ -103,12 +103,20 @@ public:
 
     bool load_avatar() {
       std::string imgname = "random_robot.png";
-      if (_name.find("mip") != std::string::npos)
-        imgname = "white_mip_black_bg.png";
+      if (_name.find("mip_black") != std::string::npos)
+        imgname = "mip_black.png";
+      else if (_name.find("mip") != std::string::npos)
+        imgname = "mip_white.png";
+      else if (_name.find("race_max") != std::string::npos)
+        imgname = "race_max_red.png";
       else if (_name.find("stage") != std::string::npos)
-        imgname = "stage_black_bg.png";
+        imgname = "stage.png";
+      else if (_name.find("sumo_black") != std::string::npos)
+        imgname = "sumo_black.png";
+      else if (_name.find("sumo_brown") != std::string::npos)
+        imgname = "sumo_brown.png";
       else if (_name.find("sumo") != std::string::npos)
-        imgname = "white_sumo_black_bg.png";
+        imgname = "sumo_white.png";
       std::string fullfilename = _game->_data_path + std::string("robots/") + imgname;
 
       double avatar_w = 0.8 * std::min (_game->_player_w, _game->_player_h);
