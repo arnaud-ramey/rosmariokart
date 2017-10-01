@@ -34,6 +34,9 @@ before_script: # Use this to prepare your build for testing e.g. copy database c
   - cd ~/catkin_ws/src
   - catkin_init_workspace
   - ln -s $CI_SOURCE_PATH . # Link the repo we are testing to the new workspace
+  # package depdencies: install using rosdep.
+  - cd ~/catkin_ws
+  - rosdep install -y --from-paths src --ignore-src
 
 script: # compile
   - cd ~/catkin_ws
