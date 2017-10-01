@@ -1,4 +1,8 @@
 # travis rules for rosmariokart
+# use Ubuntu Trusty 14.04, compatible with ROS Indigo - check https://docs.travis-ci.com/user/ci-environment/
+sudo: required
+dist: trusty
+
 language: cpp
 compiler:
   - gcc
@@ -16,7 +20,7 @@ before_install:
   - make && sudo make install
   - cd ..
   # install ROS
-  - export ROS_DISTRO=hydro
+  - export ROS_DISTRO=indigo
   - sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu precise main" > /etc/apt/sources.list.d/ros-latest.list'
   - wget https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -O - | sudo apt-key add -
   - sudo apt-get -qq update
